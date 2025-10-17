@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PC Slim – Wij maken jouw computer weer als nieuw</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <link rel="stylesheet" href="assets/styles-inline.css"/>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="container nav">
+      <div class="brand">
+        <div class="logo">PC</div>
+        <div class="name">PC <span>Slim</span></div>
+      </div>
+      <nav>
+        <ul>
+          <li><a href="#home" class="active">Home</a></li>
+          <li><a href="#diensten">Diensten</a></li>
+          <li><a href="#beloftes">Beloftes</a></li>
+          <li><a href="#werkwijze">Werkwijze</a></li>
+          <li><a href="#ervaringen">Ervaringen</a></li>
+          <li><a href="#tarieven">Tarieven</a></li>
+          <li><a href="#contact">Contact</a></li>
+          <li><a href="#faq">FAQ</a></li>
+        </ul>
+      </nav>
+      <div class="nav-cta">
+        <a href="#contact" class="btn btn-primary">Neem contact op</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section id="home" class="hero">
+    <div class="container">
+      <div class="grid">
+        <div>
+          <span class="pill">Eerlijk advies • Snelle hulp</span>
+          <h1>Wij maken jouw computer weer als nieuw</h1>
+          <p>Upgrade naar Windows 11, of – als dat niet kan – overstappen naar Linux. Wij zorgen dat je computer soepel werkt, met duidelijke uitleg en vaste prijsafspraak.</p>
+          <div class="cta">
+            <a href="#diensten" class="btn btn-alt">Bekijk onze diensten</a>
+            <a href="#tarieven" class="btn btn-outline">Bekijk tarieven</a>
+          </div>
+        </div>
+        <div class="hero-card">
+          <h3>Wat je krijgt</h3>
+          <div class="hero-row">
+            <div class="hero-icon"><i class="fa-solid fa-shield-heart"></i></div>
+            <div>
+              <strong>Upgrades zonder zorgen</strong>
+              <div class="muted">Back-up, installatie en nazorg.</div>
+            </div>
+          </div>
+          <div class="hero-row">
+            <div class="hero-icon"><i class="fa-solid fa-gauge-high"></i></div>
+            <div>
+              <strong>Meer snelheid</strong>
+              <div class="muted">SSD-upgrade en genoeg RAM.</div>
+            </div>
+          </div>
+          <div class="hero-row">
+            <div class="hero-icon"><i class="fa-solid fa-circle-check"></i></div>
+            <div>
+              <strong>Veilig & vertrouwd</strong>
+              <div class="muted">Updates en begrijpelijke uitleg.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Welkom-band -->
+  <section class="welcome-band">
+    <div class="container">
+      Iedereen welkom – jij bepaalt het tempo: rustige uitleg of snel geregeld. Vaste prijs, geen vakjargon.
+    </div>
+  </section>
+
+  <!-- Online Check – banner onder hero -->
+  <section class="online-check-band">
+    <div class="container">
+      <div class="card" id="card-online-check">
+        <div class="card-head">
+          <div class="icon"><i class="fa-solid fa-magnifying-glass"></i></div>
+          <h3>Online Check (gratis)</h3>
+        </div>
+        <p>Direct advies op basis van merk en model. Wij kijken wat er kan.</p>
+
+        <!-- Geen action/method → JS doet fetch naar advise.php -->
+        <form id="check-form" autocomplete="off">
+          <label class="lbl" for="brand">Merk</label>
+          <input class="inp" id="brand" name="brand" placeholder="bijv. HP, Dell, Acer" required>
+
+          <label class="lbl" for="model">Model</label>
+          <input class="inp" id="model" name="model" placeholder="bijv. ProBook 450 G5, Inspiron 5570" required>
+
+          <div class="options">
+            <label class="chip">
+              <input type="checkbox" name="has-ssd"> SSD aanwezig
+            </label>
+            <label class="chip">
+              <input type="checkbox" name="has-ram"> RAM al geüpgraded
+            </label>
+          </div>
+
+          <button type="submit" class="btn btn-primary">Gratis check</button>
+        </form>
+
+        <div id="online-check-result"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Diensten -->
+  <section id="diensten">
+    <div class="container">
+      <div class="section-title">
+        <h2>Onze Diensten</h2>
+        <p>Complete computerondersteuning voor particulieren en kleine bedrijven.</p>
+      </div>
+
+      <div class="cards">
+        <div class="card">
+          <div class="card-head">
+            <div class="icon"><i class="fa-solid fa-rotate"></i></div>
+            <h3>Upgrade-service</h3>
+          </div>
+          <p>Upgrade naar Windows 11 en hardware-upgrades zoals SSD en RAM. We regelen back-up, installatie en nazorg.</p>
+          <div class="card-footer">
+            <div class="price">vanaf € 59</div>
+            <a href="#contact" class="btn btn-primary">Meer informatie</a>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div class="icon"><i class="fa-solid fa-memory"></i></div>
+            <h3>Linux Oplossingen</h3>
+          </div>
+          <p>Installatie van Linux voor oude computers, inclusief migratie van bestanden en korte training.</p>
+          <div class="card-footer">
+            <div class="price">vanaf € 79</div>
+            <a href="#beloftes" class="btn">Meer informatie</a>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div class="icon"><i class="fa-solid fa-shield-halved"></i></div>
+            <h3>Beveiliging & Gemak</h3>
+          </div>
+          <p>Back-ups, firewall en wachtwoordbeheer zodat je veilig online bent.</p>
+          <div class="card-footer">
+            <div class="price">op maat</div>
+            <a href="#contact" class="btn">Meer informatie</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- (overige secties ongewijzigd)… -->
+
+  <!-- Online Check script -->
+  <script>
+  (function(){
+    const form = document.getElementById('check-form');
+    const result = document.getElementById('online-check-result');
+    if (!form || !result) return;
+
+    // Hulpkaartje bij geen match
+    const chatAssist = {
+      start(ctx){
+        result.style.opacity = 0;
+        setTimeout(()=>{
+          result.innerHTML = `
+            <div class="advice">
+              <strong>Model niet gevonden.</strong><br/>
+              <em>Werkhypothese</em>: je model staat (nog) niet in de database.<br/>
+              Tip: geef exacte modelnaam (bijv. “ProBook 450 G5”) of klik “Contact”.
+            </div>`;
+          result.style.opacity = 1;
+        },150);
+      }
+    };
+
+    function renderAdvice(data){
+      result.style.opacity = 0;
+      setTimeout(()=>{
+        const specs = data.specs || {};
+        result.innerHTML = `
+          <div class="advice">
+            <strong>${(data.match?.brand || '')} ${data.match?.display_model || ''}</strong><br/>
+            <small>Windows 11: ${data.supports_w11 === 1 ? '✅' : data.supports_w11 === 0 ? '❌' : '❔ onbekend'}</small>
+            <div style="margin:10px 0 6px"><b>Advies:</b> ${data.advice}</div>
+            ${specs.ram_installed || specs.storage_iface ? `
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px">
+                <div><small style="color:#6b778c">RAM</small><br><b>${specs.ram_installed || '-'}</b>${specs.ram_type?` (${specs.ram_type})`:''}</div>
+                <div><small style="color:#6b778c">Opslag</small><br><b>${specs.storage_iface || '-'}</b></div>
+              </div>` : ''
+            }
+          </div>`;
+        result.style.opacity = 1;
+      },150);
+    }
+
+    // Intercept form-submit en roep advise.php via GET aan
+    form.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+
+      const fd = new FormData(form);
+      const brand = (fd.get('brand') || '').toString().trim();
+      const model = (fd.get('model') || '').toString().trim();
+
+      if (!brand || !model) {
+        result.innerHTML = `
+          <div class="advice" style="background:#fdecea;border-color:#f5c2c7">
+            <strong>Fout:</strong> Vul a.u.b. zowel merk als model in.
+          </div>`;
+        return;
+      }
+
+      result.innerHTML = '<div class="muted">Controleren…</div>';
+      result.style.opacity = 1;
+
+      try{
+        const qs = new URLSearchParams({ brand, model }); // optioneel: qs.set('strict','1')
+        const r  = await fetch(`advise.php?${qs.toString()}`, { method: 'GET', cache: 'no-store' });
+
+        // Soms serveert PHP text/plain i.p.v. application/json; probeer tóch te parsen.
+        const text = await r.text();
+        let data = null;
+        try { data = JSON.parse(text); }
+        catch { throw new Error('Server stuurde geen geldige JSON terug.'); }
+
+        if (!r.ok || !data) throw new Error(`Serverfout (${r.status})`);
+
+        if (!data.found) {
+          chatAssist.start({
+            brand, model,
+            reason: data.reason || 'onbekend',
+            message: data.message || '',
+            suggestions: data.suggestions || [],
+            ask: data.ask || null
+          });
+          return;
+        }
+
+        renderAdvice(data);
+      }catch(err){
+        result.innerHTML = `
+          <div class="advice" style="background:#fdecea;border-color:#f5c2c7">
+            <strong>Fout:</strong> ${err.message || err}
+          </div>`;
+      }
+    });
+  })();
+  </script>
+
+</body>
+</html>
