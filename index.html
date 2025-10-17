@@ -140,13 +140,46 @@
   .advice-highlight p{margin:0;color:#516476}
   .advice-highlight .intro{display:flex;flex-direction:column;gap:8px;margin-bottom:20px}
   .advice-highlight .intro-icon{font-size:32px}
-  .advice-form{margin-top:14px;display:grid;gap:12px}
-  .advice-form-usage,.advice-form-submit{grid-column:1/-1}
-  .usage-options{display:flex;gap:10px;flex-wrap:wrap}
-  .advice-form-submit{display:flex;gap:10px;align-items:center}
+  .advice-form{
+    margin-top:14px;
+    display:grid;
+    gap:24px;
+  }
+  .advice-columns{
+    display:grid;
+    gap:24px;
+  }
+  .advice-group{
+    display:grid;
+    gap:16px;
+  }
+  .advice-group-title{
+    font-weight:700;
+    color:#1c3760;
+    font-size:1rem;
+  }
+  .advice-group .field{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  .advice-form-usage{
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+  .usage-options{display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-start}
+  .advice-form-submit{
+    text-align:center;
+  }
+  .advice-form-submit .btn-primary{
+    min-width:220px;
+  }
   .advice-result{margin-top:14px;display:none}
-  @media (min-width:620px){.advice-form{grid-template-columns:1fr 1fr}}
-  @media (min-width:620px){.advice-form-usage,.advice-form-submit{grid-column:1/-1}}
+  @media (min-width:720px){
+    .advice-columns{grid-template-columns:repeat(2,1fr);align-items:start}
+    .advice-form-submit{text-align:center}
+  }
   @media (min-width:720px){
     .advice-highlight-inner{display:grid;grid-template-columns:auto 1fr;gap:24px;align-items:flex-start}
     .advice-highlight .intro{margin:0}
@@ -249,68 +282,66 @@
 
           <!-- Alleen merk & model verplicht; GET naar advies.php -->
           <form id="pcslim-check-form" action="advise.php" method="get" class="advice-form">
-            <div>
-              <label class="lbl" for="brand">Merk</label>
-              <input class="inp" id="brand" name="brand" placeholder="Bijv. Dell" required autocomplete="off">
-            </div>
-            <div>
-              <label class="lbl" for="model">Model/Type</label>
-              <input class="inp" id="model" name="model" placeholder="Bijv. Inspiron 5570" required autocomplete="off">
-            </div>
-            <div>
-              <label class="lbl" for="ram">RAM (GB)</label>
-              <select class="inp" id="ram" name="ram">
-                <option value="">Kies… (optioneel)</option>
-                <option>2</option>
-                <option>4</option>
-                <option>6</option>
-                <option>8</option>
-                <option>12</option>
-                <option>16</option>
-                <option>32</option>
-              </select>
-            </div>
-            <div>
-              <label class="lbl" for="storage_type">Opslag</label>
-              <select class="inp" id="storage_type" name="storage_type">
-                <option value="">Kies… (optioneel)</option>
-                <option value="SSD">SSD</option>
-                <option value="HDD">HDD</option>
-                <option value="Onbekend">Onbekend</option>
-              </select>
-            </div>
-            <div>
-              <label class="lbl" for="storage_gb">Opslag (GB)</label>
-              <select class="inp" id="storage_gb" name="storage_gb">
-                <option value="">Kies… (optioneel)</option>
-                <option>120</option>
-                <option>240</option>
-                <option>256</option>
-                <option>480</option>
-                <option>500</option>
-                <option>512</option>
-                <option>960</option>
-                <option>1000</option>
-                <option>1024</option>
-              </select>
-            </div>
-            <div>
-              <label class="lbl" for="cpu_year">Bouwjaar/CPU</label>
-              <select class="inp" id="cpu_year" name="cpu_year">
-                <option value="">Kies… (optioneel)</option>
-                <option value="pre2015">≤ 2014</option>
-                <option value="2015-2017">2015–2017</option>
-                <option value="2018-2020">2018–2020</option>
-                <option value="2021plus">2021+</option>
-              </select>
-            </div>
-
-            <div class="advice-form-usage">
-              <label class="lbl">Gebruik</label>
-              <div class="usage-options">
-                <label class="chip"><input type="radio" name="use" value="basis"> Basis</label>
-                <label class="chip"><input type="radio" name="use" value="standaard"> Standaard</label>
-                <label class="chip"><input type="radio" name="use" value="zwaar"> Zwaar</label>
+            <div class="advice-columns">
+              <div class="advice-group advice-group-device">
+                <div class="advice-group-title">Toestelgegevens</div>
+                <div class="field">
+                  <label class="lbl" for="brand">Merk</label>
+                  <input class="inp" id="brand" name="brand" placeholder="Bijv. Dell" required autocomplete="off">
+                </div>
+                <div class="field">
+                  <label class="lbl" for="model">Model/Type</label>
+                  <input class="inp" id="model" name="model" placeholder="Bijv. Inspiron 5570" required autocomplete="off">
+                </div>
+                <div class="field">
+                  <label class="lbl" for="cpu_year">Bouwjaar/CPU</label>
+                  <select class="inp" id="cpu_year" name="cpu_year">
+                    <option value="">Kies… (optioneel)</option>
+                    <option value="pre2015">≤ 2014</option>
+                    <option value="2015-2017">2015–2017</option>
+                    <option value="2018-2020">2018–2020</option>
+                    <option value="2021plus">2021+</option>
+                  </select>
+                </div>
+              </div>
+              <div class="advice-group advice-group-performance">
+                <div class="advice-group-title">Prestaties & gebruik</div>
+                <div class="field">
+                  <label class="lbl" for="ram">RAM (GB)</label>
+                  <select class="inp" id="ram" name="ram">
+                    <option value="">Kies… (optioneel)</option>
+                    <option>2</option>
+                    <option>4</option>
+                    <option>6</option>
+                    <option>8</option>
+                    <option>12</option>
+                    <option>16</option>
+                    <option>32</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label class="lbl" for="storage_gb">Opslag (GB)</label>
+                  <select class="inp" id="storage_gb" name="storage_gb">
+                    <option value="">Kies… (optioneel)</option>
+                    <option>120</option>
+                    <option>240</option>
+                    <option>256</option>
+                    <option>480</option>
+                    <option>500</option>
+                    <option>512</option>
+                    <option>960</option>
+                    <option>1000</option>
+                    <option>1024</option>
+                  </select>
+                </div>
+                <div class="advice-form-usage">
+                  <label class="lbl">Gebruik</label>
+                  <div class="usage-options">
+                    <label class="chip"><input type="radio" name="use" value="basis"> Basis</label>
+                    <label class="chip"><input type="radio" name="use" value="standaard"> Standaard</label>
+                    <label class="chip"><input type="radio" name="use" value="zwaar"> Zwaar</label>
+                  </div>
+                </div>
               </div>
             </div>
 
