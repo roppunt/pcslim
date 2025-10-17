@@ -785,7 +785,7 @@ $contextSummary = renderContextSummary($context);
  */
 function callLanguageModel(array $messages, string $contextSummary): array
 {
-    $apiKey = getenv('OPENAI_API_KEY') ?: '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';
+    $apiKey = getenv('OPENAI_API_KEY') ?: '<openai_key>';
     $model = getenv('OPENAI_MODEL') ?: 'gpt-4o-mini';
     $baseUrl = rtrim(getenv('OPENAI_BASE_URL') ?: 'https://api.openai.com/v1', '/');
 
