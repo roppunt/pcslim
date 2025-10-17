@@ -348,7 +348,7 @@
           <p>Installatie van Linux voor oude computers, inclusief migratie van bestanden en korte training.</p>
           <div class="card-footer">
             <p class="price">vanaf € 79</p>
-            <a class="btn btn-primary" href="#contact">Meer informatie</a>
+            <a class="btn btn-primary" href="#linux-info">Meer informatie</a>
           </div>
         </div>
         <div class="card">
@@ -365,6 +365,83 @@
       </div>
     </div>
   </section>
+
+  <section id="linux-info" class="section section--linux" aria-labelledby="linux-info-title">
+    <div class="container">
+      <header class="section__header">
+        <h2 id="linux-info-title">Linux: veilig, snel en vertrouwd op oudere computers</h2>
+        <p class="section__lead">
+          Linux is een modern en gebruiksvriendelijk besturingssysteem. Ideaal als je pc of laptop geen Windows 11 ondersteunt.
+          Je behoudt internet, e-mail, foto’s en tekstverwerking — zonder dure licenties.
+        </p>
+      </header>
+
+      <div class="linux-benefits">
+        <div class="benefit">
+          <span class="benefit__icon" aria-hidden="true">🛡️</span>
+          <div class="benefit__body"><strong>Veilig</strong><br>Regelmatige beveiligingsupdates zonder extra kosten.</div>
+        </div>
+        <div class="benefit">
+          <span class="benefit__icon" aria-hidden="true">⚡</span>
+          <div class="benefit__body"><strong>Snel</strong><br>Start en werkt vlotter, zeker op oudere hardware.</div>
+        </div>
+        <div class="benefit">
+          <span class="benefit__icon" aria-hidden="true">💸</span>
+          <div class="benefit__body"><strong>Voordelig</strong><br>Geen licentiekosten, gratis updates.</div>
+        </div>
+      </div>
+
+      <h3 class="subheading">Populaire opties</h3>
+      <div class="linux-options">
+        <article class="linux-card">
+          <figure class="linux-card__media">
+            <img src="assets/images/linux/zorin-desktop.jpg" alt="Voorbeeld van Zorin OS desktop" loading="lazy">
+          </figure>
+          <div class="linux-card__body">
+            <h4>Zorin OS</h4>
+            <p>Bekend om de <em>Windows-achtige</em> uitstraling. Zeer geschikt voor overstappers die herkenning willen.</p>
+          </div>
+        </article>
+
+        <article class="linux-card">
+          <figure class="linux-card__media">
+            <img src="assets/images/linux/mint-desktop.png" alt="Voorbeeld van Linux Mint desktop" loading="lazy">
+          </figure>
+          <div class="linux-card__body">
+            <h4>Linux Mint</h4>
+            <p>Stabiel en gebruiksvriendelijk, met een klassieke desktop en veel software direct beschikbaar.</p>
+          </div>
+        </article>
+
+        <article class="linux-card">
+          <figure class="linux-card__media">
+            <img src="assets/images/linux/ubuntu-desktop.png" alt="Voorbeeld van Ubuntu desktop" loading="lazy">
+          </figure>
+          <div class="linux-card__body">
+            <h4>Ubuntu MATE</h4>
+            <p>Licht en snel, ideaal voor oudere pc’s. Simpele bediening met vertrouwde menustructuur.</p>
+          </div>
+        </article>
+      </div>
+
+      <h3 class="subheading">Hoe werkt overstappen?</h3>
+      <ol class="linux-steps">
+        <li><strong>Intake & advies:</strong> we checken jouw pc en wensen (internet, mail, foto’s, documenten).</li>
+        <li><strong>Back-up & installatie:</strong> we maken veilig een back-up en installeren Linux.</li>
+        <li><strong>Migratie & uitleg:</strong> we zetten je bestanden over, richten apps in en geven een korte uitleg.</li>
+      </ol>
+
+      <div class="cta-row">
+        <a class="btn btn--primary" href="advies.html">Krijg persoonlijk advies</a>
+        <a class="btn btn--ghost" href="faq.html#is-windows-10-nog-wel-veilig">Lees: Is Windows 10 nog wel veilig?</a>
+      </div>
+
+      <div class="linux-note">
+        <p><strong>Screenshots ontbreken?</strong> Als bovenstaande afbeeldingen nog niet in de map staan, gebruik tijdelijk de meegeleverde placeholders. Zie instructies in de CSS-notes.</p>
+      </div>
+    </div>
+  </section>
+
 
   <!-- Onze beloftes -->
   <section id="beloftes" class="usp">
@@ -1041,6 +1118,20 @@
     } catch (e) { }
   })();
   </script>
-
+ <script>
+    (function(){
+      var anchor = document.querySelector('a[href="#linux-info"]');
+      if (!anchor) return;
+      anchor.addEventListener('click', function(e){
+        var target = document.getElementById('linux-info');
+        if (!target) return;
+        try {
+          e.preventDefault();
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          history.pushState(null, '', '#linux-info');
+        } catch(_) {}
+      });
+    })();
+  </script>
 </body>
 </html>
