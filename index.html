@@ -141,22 +141,38 @@
   .advice-highlight .intro{display:flex;flex-direction:column;gap:8px;margin-bottom:20px}
   .advice-highlight .intro-icon{font-size:32px}
   .advice-form{
-    margin-top:14px;
+    margin-top:18px;
     display:grid;
-    gap:24px;
+    gap:28px;
   }
   .advice-columns{
     display:grid;
-    gap:24px;
+    gap:22px;
   }
   .advice-group{
     display:grid;
-    gap:16px;
+    gap:14px;
+    padding:20px;
+    border-radius:18px;
+    background:linear-gradient(135deg,#f8fbff 0%,#ffffff 100%);
+    border:1px solid #e3ecf7;
+    box-shadow:0 12px 28px -18px rgba(28,55,96,.35);
   }
   .advice-group-title{
     font-weight:700;
-    color:#1c3760;
-    font-size:1rem;
+    color:#12335b;
+    font-size:1.05rem;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .advice-group-title:before{
+    content:"";
+    width:14px;
+    height:14px;
+    border-radius:50%;
+    background:linear-gradient(135deg,#245c8e,#2f76b2);
+    box-shadow:0 0 0 4px rgba(36,92,142,.15);
   }
   .advice-group .field{
     display:flex;
@@ -170,15 +186,17 @@
   }
   .usage-options{display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-start}
   .advice-form-submit{
-    text-align:center;
+    display:flex;
+    justify-content:center;
   }
   .advice-form-submit .btn-primary{
-    min-width:220px;
+    min-width:240px;
+    padding:12px 24px;
+    font-size:1rem;
   }
   .advice-result{margin-top:14px;display:none}
-  @media (min-width:720px){
-    .advice-columns{grid-template-columns:repeat(2,1fr);align-items:start}
-    .advice-form-submit{text-align:center}
+  @media (min-width:640px){
+    .advice-columns{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
   }
   @media (min-width:720px){
     .advice-highlight-inner{display:grid;grid-template-columns:auto 1fr;gap:24px;align-items:flex-start}
@@ -189,9 +207,9 @@
   }
   /* Compacte primaire knop in de Online Check-kaart */
   #card-online-check .btn-primary {
-    padding: 10px 14px;
-    border-radius: 10px;
-    font-size: 0.95rem;
+    padding: 12px 24px;
+    border-radius: 12px;
+    font-size: 1rem;
   }
 
   
