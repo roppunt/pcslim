@@ -1,0 +1,9 @@
+brand,display_model,model_regex_json,max_ram_gb,supports_w11,storage,cpu_arch,notes,active
+Lenovo,ThinkPad T430,"[""thinkpad\\s*t430""]",16,0,"2.5"" SATA + mSATA","x86-64","Ivy Bridge; goed met Linux",1
+Lenovo,ThinkPad X220,"[""thinkpad\\s*x220""]",16,0,"2.5"" SATA","x86-64","Sandy Bridge; 2x SODIMM",1
+HP,EliteBook 840 G1,"[""elitebook\\s*840\\s*g1""]",16,0,"2.5"" SATA + mSATA","x86-64","TPM aanwezig; W11 meestal niet ondersteund",1
+Dell,Latitude E7440,"[""latitude\\s*e7440""]",16,0,"2.5"" SATA + mSATA","x86-64","Prima Linux-keuze",1
+Acer,Aspire E1-571,"[""aspire\\s*e1-571""]",8,0,"2.5"" SATA","x86-64","Let op: soms 1 SODIMM slot",1
+ASUS,X555L,"[""x555l"",""x555la""]",8,0,"2.5"" SATA","x86-64","YouTube 1080p oké met SSD",1
+Toshiba,Satellite L750,"[""satellite\\s*l750""]",8,0,"2.5"" SATA","x86-64","Ouderwetse BIOS; Linux licht",1
+Fujitsu Siemens,Amilo Pro V3515,"[""amilo\\s*pro\\s*v3515""]",2,0,"2.5"" SATA","x86-64","Erg traag; Linux only",1
