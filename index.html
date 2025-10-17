@@ -133,25 +133,32 @@
     .chip{display:inline-flex;gap:8px;align-items:center;padding:8px 12px;border-radius:999px;border:1px solid #dfe7ef;background:#f3f7fb;color:#395172;cursor:pointer;}
     .chip input{accent-color:#2e66a7}
     .btn-ghost{all:unset;border:1px solid #dfe7ef;color:#274564;background:#fff;padding:10px 14px;border-radius:10px;cursor:pointer;}
-  /* --- Layout fix: Online Check rechtsboven --- */
-@media (min-width: 900px) {
-  .cards { grid-template-columns: repeat(3, 1fr); }
-
-  /* Zet de eerste 2 service-kaarten expliciet in kolom 1 en 2 */
-  .cards > .card:nth-of-type(1) { grid-column: 1; grid-row: 1; }
-  .cards > .card:nth-of-type(2) { grid-column: 2; grid-row: 1; }
-
-  /* Online Check-kaart altijd rechtsboven */
-  #card-online-check { grid-column: 3; grid-row: 1; }
-
-  /* Overige kaarten stromen vanzelf door naar rij 2+ */
-}
-/* Compacte primaire knop in de Online Check-kaart */
-#card-online-check .btn-primary {
-  padding: 10px 14px;
-  border-radius: 10px;
-  font-size: 0.95rem;
-}
+  .advice-highlight{margin:0 auto 40px;width:100%;max-width:900px}
+  .advice-highlight-inner{background:linear-gradient(135deg,#f3f8ff,#ffffff);padding:24px;border-radius:22px;box-shadow:var(--shadow)}
+  .advice-highlight h2{margin:0 0 6px;font-size:1.6rem;color:#143253}
+  .advice-highlight p{margin:0;color:#516476}
+  .advice-highlight .intro{display:flex;flex-direction:column;gap:8px;margin-bottom:20px}
+  .advice-highlight .intro-icon{font-size:32px}
+  .advice-form{margin-top:14px;display:grid;gap:12px}
+  .advice-form-usage,.advice-form-submit{grid-column:1/-1}
+  .usage-options{display:flex;gap:10px;flex-wrap:wrap}
+  .advice-form-submit{display:flex;gap:10px;align-items:center}
+  .advice-result{margin-top:14px;display:none}
+  @media (min-width:620px){.advice-form{grid-template-columns:1fr 1fr}}
+  @media (min-width:620px){.advice-form-usage,.advice-form-submit{grid-column:1/-1}}
+  @media (min-width:720px){
+    .advice-highlight-inner{display:grid;grid-template-columns:auto 1fr;gap:24px;align-items:flex-start}
+    .advice-highlight .intro{margin:0}
+  }
+  @media (max-width:719px){
+    .advice-highlight-inner{gap:18px}
+  }
+  /* Compacte primaire knop in de Online Check-kaart */
+  #card-online-check .btn-primary {
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 0.95rem;
+  }
 
   
   </style>
@@ -212,29 +219,18 @@
   <!-- Diensten -->
   <section id="diensten">
     <div class="container">
-      <div class="section-title">
-        <h2>Onze Diensten</h2>
-        <p>Complete computerondersteuning voor particulieren en kleine bedrijven.</p>
-      </div>
-
-      <div class="cards">
-        <div class="card"><div class="card-head"><div class="icon"><i class="fa-solid fa-rotate"></i></div><h3>Upgrade-service</h3></div><p>Upgrade naar Windows 11 en hardware-upgrades zoals SSD en RAM. We regelen back-up, installatie en nazorg.</p><div class="card-footer"><p class="price">vanaf € 59</p><a class="btn btn-primary" href="#contact">Meer informatie</a></div></div>
-        <div class="card"><div class="card-head"><div class="icon"><i class="fa-brands fa-linux"></i></div><h3>Linux Oplossingen</h3></div><p>Installatie van Linux voor oude computers, inclusief migratie van bestanden en korte training.</p><div class="card-footer"><p class="price">vanaf € 79</p><a class="btn btn-primary" href="#contact">Meer informatie</a></div></div>
-        <div class="card"><div class="card-head"><div class="icon"><i class="fa-solid fa-user-shield"></i></div><h3>Beveiliging & Gemak</h3></div><p>Back-ups, firewall en wachtwoordbeheer zodat je veilig online bent.</p><div class="card-footer"><p class="price">op maat</p><a class="btn btn-primary" href="#contact">Meer informatie</a></div></div>
-
-        <!-- KAART: Online Check -->
-        <div class="card" id="card-online-check" style="border-radius:18px;padding:22px;background:#fff;box-shadow:0 10px 28px rgba(10,22,50,.08);border:1px solid #e7edf4;">
-          <div style="display:flex;align-items:flex-start;gap:12px;">
-            <div style="background:#eaf2fb;color:#1f4b7a;width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;">🔍</div>
-            <div style="flex:1">
-              <h3 style="margin:0 0 6px;color:#183048;font-size:20px;">Online Check (gratis)</h3>
-              <p style="margin:0;color:#516476;">Direct advies op basis van jouw invoer + onze database.</p>
+      <div class="advice-highlight">
+        <div class="advice-highlight-inner" id="card-online-check">
+          <div class="intro">
+            <div class="intro-icon">🔍</div>
+            <div>
+              <h2>Online Check (gratis)</h2>
+              <p>Direct advies op basis van jouw invoer + onze database.</p>
             </div>
           </div>
 
           <!-- Alleen merk & model verplicht; GET naar advies.php -->
-          <form id="pcslim-check-form" action="advise.php" method="get"
-                style="margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <form id="pcslim-check-form" action="advise.php" method="get" class="advice-form">
             <div>
               <label class="lbl" for="brand">Merk</label>
               <input class="inp" id="brand" name="brand" placeholder="Bijv. Dell" required autocomplete="off">
@@ -247,8 +243,13 @@
               <label class="lbl" for="ram">RAM (GB)</label>
               <select class="inp" id="ram" name="ram">
                 <option value="">Kies… (optioneel)</option>
-                <option>2</option><option>4</option><option>6</option>
-                <option>8</option><option>12</option><option>16</option><option>32</option>
+                <option>2</option>
+                <option>4</option>
+                <option>6</option>
+                <option>8</option>
+                <option>12</option>
+                <option>16</option>
+                <option>32</option>
               </select>
             </div>
             <div>
@@ -264,9 +265,15 @@
               <label class="lbl" for="storage_gb">Opslag (GB)</label>
               <select class="inp" id="storage_gb" name="storage_gb">
                 <option value="">Kies… (optioneel)</option>
-                <option>120</option><option>240</option><option>256</option>
-                <option>480</option><option>500</option><option>512</option>
-                <option>960</option><option>1000</option><option>1024</option>
+                <option>120</option>
+                <option>240</option>
+                <option>256</option>
+                <option>480</option>
+                <option>500</option>
+                <option>512</option>
+                <option>960</option>
+                <option>1000</option>
+                <option>1024</option>
               </select>
             </div>
             <div>
@@ -280,21 +287,62 @@
               </select>
             </div>
 
-            <div style="grid-column:1/-1">
+            <div class="advice-form-usage">
               <label class="lbl">Gebruik</label>
-              <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <div class="usage-options">
                 <label class="chip"><input type="radio" name="use" value="basis"> Basis</label>
                 <label class="chip"><input type="radio" name="use" value="standaard"> Standaard</label>
                 <label class="chip"><input type="radio" name="use" value="zwaar"> Zwaar</label>
               </div>
             </div>
 
-            <div style="grid-column:1/-1;display:flex;gap:10px;align-items:center;">
+            <div class="advice-form-submit">
               <button type="submit" class="btn-primary">Geef mijn advies</button>
             </div>
           </form>
 
-          <div id="pcslim-check-result" style="margin-top:14px;display:none;"></div>
+          <div id="pcslim-check-result" class="advice-result"></div>
+        </div>
+      </div>
+
+      <div class="section-title">
+        <h2>Onze Diensten</h2>
+        <p>Complete computerondersteuning voor particulieren en kleine bedrijven.</p>
+      </div>
+
+      <div class="cards">
+        <div class="card">
+          <div class="card-head">
+            <div class="icon"><i class="fa-solid fa-rotate"></i></div>
+            <h3>Upgrade-service</h3>
+          </div>
+          <p>Upgrade naar Windows 11 en hardware-upgrades zoals SSD en RAM. We regelen back-up, installatie en nazorg.</p>
+          <div class="card-footer">
+            <p class="price">vanaf € 59</p>
+            <a class="btn btn-primary" href="#contact">Meer informatie</a>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <div class="icon"><i class="fa-brands fa-linux"></i></div>
+            <h3>Linux Oplossingen</h3>
+          </div>
+          <p>Installatie van Linux voor oude computers, inclusief migratie van bestanden en korte training.</p>
+          <div class="card-footer">
+            <p class="price">vanaf € 79</p>
+            <a class="btn btn-primary" href="#contact">Meer informatie</a>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <div class="icon"><i class="fa-solid fa-user-shield"></i></div>
+            <h3>Beveiliging &amp; Gemak</h3>
+          </div>
+          <p>Back-ups, firewall en wachtwoordbeheer zodat je veilig online bent.</p>
+          <div class="card-footer">
+            <p class="price">op maat</p>
+            <a class="btn btn-primary" href="#contact">Meer informatie</a>
+          </div>
         </div>
       </div>
     </div>
