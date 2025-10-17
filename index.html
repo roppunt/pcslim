@@ -106,7 +106,7 @@
     .form-row{margin-bottom:14px}
 
     details{background:#fff;border-radius:12px;box-shadow:var(--shadow);padding:18px;margin-bottom:12px}
-    summary{cursor:pointer;font-weight:700;color:var(--primary)}
+    summary{cursor:pointer;font-weight:700;color:#primary}
     summary::-webkit-details-marker{display:none}
     summary:after{content:"+";float:right;font-weight:800}
     details[open] summary:after{content:"–"}
@@ -127,66 +127,82 @@
     #card-online-check::before, #card-online-check::after { pointer-events: none !important; }
     #card-online-check form, #card-online-check form * { pointer-events: auto !important; }
 
-    /* mini UI helpers voor Online Check */
+    /* Mini UI helpers voor Online Check */
     .lbl{display:block;font-weight:600;color:#2d4159;margin:2px 0 6px;}
+    .hint{display:block;font-size:.85rem;color:#6b778c;margin-top:4px}
     .inp{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #dfe7ef;background:#f8fbfe;color:#1a2a3f;}
     .inp:focus{outline:none;border-color:#9ac3ff;background:#fff;}
-    .chip{display:inline-flex;gap:8px;align-items:center;padding:8px 12px;border-radius:999px;border:1px solid #dfe7ef;background:#f3f7fb;color:#395172;cursor:pointer;}
+    .chip{display:inline-flex;gap:8px;align-items:center;padding:8px 12px;border-radius:999px;border:1px solid #dfe7ef;background:#f3f7fb;color:#395172;cursor:pointer;line-height:1}
     .chip input{accent-color:#2e66a7}
     .btn-ghost{all:unset;border:1px solid #dfe7ef;color:#274564;background:#fff;padding:10px 14px;border-radius:10px;cursor:pointer;}
-  .advice-highlight{margin:0 auto 40px;width:100%;max-width:900px}
-  .advice-highlight-inner{background:linear-gradient(135deg,#f3f8ff,#ffffff);padding:24px;border-radius:22px;box-shadow:var(--shadow)}
-  .advice-highlight h2{margin:0 0 6px;font-size:1.6rem;color:#143253}
-  .advice-highlight p{margin:0;color:#516476}
-  .advice-highlight .intro{display:flex;flex-direction:column;gap:8px;margin-bottom:20px}
-  .advice-highlight .intro-icon{font-size:32px}
-  .advice-form{
-    margin-top:14px;
-    display:grid;
-    gap:18px;
-    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
-    align-items:end;
-  }
-  .advice-form > div:not(.advice-form-usage):not(.advice-form-submit){
-    display:flex;
-    flex-direction:column;
-    gap:8px;
-  }
-  .advice-form-usage{
-    display:flex;
-    flex-direction:column;
-    gap:12px;
-    grid-column:1/-1;
-  }
-  .usage-options{display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-start}
-  .advice-form-submit{
-    display:flex;
-    gap:10px;
-    align-items:center;
-    justify-content:flex-end;
-    grid-column:1/-1;
-  }
-  @media (min-width:900px){
-    .advice-form-submit{grid-column:auto;justify-content:flex-end;justify-self:end}
-  }
-  .advice-result{margin-top:14px;display:none}
-  @media (min-width:620px){.advice-form{grid-template-columns:1fr 1fr}}
-  @media (min-width:620px){.advice-form-usage,.advice-form-submit{grid-column:1/-1}}
-  @media (min-width:720px){
-    .advice-highlight-inner{display:grid;grid-template-columns:auto 1fr;gap:24px;align-items:flex-start}
-    .advice-highlight .intro{margin:0}
-  }
-  @media (max-width:719px){
-    .advice-highlight-inner{gap:18px}
-  }
-  /* Compacte primaire knop in de Online Check-kaart */
-  #card-online-check .btn-primary {
-    padding: 10px 14px;
-    border-radius: 10px;
-    font-size: 0.95rem;
-  }
 
-  
+    /* Online Check – Kaart */
+    .advice-highlight{margin:0 auto 40px;width:100%;max-width:980px}
+    .advice-highlight-inner{
+      background:linear-gradient(135deg,#f7fbff,#ffffff);
+      padding:24px;border-radius:22px;box-shadow:var(--shadow);border:1px solid #e7edf4
+    }
+    .advice-highlight h2{margin:0 0 6px;font-size:1.6rem;color:#143253}
+    .advice-highlight p{margin:0;color:#516476}
+    .advice-highlight .intro{display:flex;flex-direction:column;gap:8px;margin:0 0 12px}
+    .advice-highlight .intro-icon{font-size:32px}
+
+    /* Form grid + grove hiërarchie */
+    .advice-form{
+      margin-top:10px;
+      display:grid;gap:18px;align-items:end;
+      grid-template-columns:1fr;
+    }
+    .advice-form .group-title{font-weight:800;color:#1f3552;margin:2px 0 2px;font-size:.95rem}
+    .advice-form .group{
+      background:#fbfdff;border:1px solid #eaf1f9;border-radius:14px;padding:14px;
+      display:grid;gap:12px
+    }
+    .advice-form .group.grid-2{grid-template-columns:1fr}
+    @media (min-width:720px){
+      .advice-form{grid-template-columns:1fr 1fr;gap:18px}
+      .advice-form .group.grid-2{grid-template-columns:1fr 1fr;gap:14px}
+    }
+
+    .advice-form-usage{
+      display:flex;flex-direction:column;gap:10px;grid-column:1/-1
+    }
+    .usage-options{display:flex;gap:10px;flex-wrap:wrap}
+    .usage-options .chip{user-select:none}
+
+    .advice-form-submit{
+      display:flex;gap:10px;align-items:center;justify-content:flex-end;grid-column:1/-1;margin-top:2px
+    }
+
+    /* Compacte primaire knop in de Online Check-kaart */
+    #card-online-check .btn-primary {
+      padding: 10px 14px;border-radius: 10px;font-size: 0.95rem;
+    }
+
+    /* Resultaatkaart spacing */
+    .advice-result{margin-top:14px;display:none}
+    @media (min-width:720px){ .advice-result{margin-top:16px} }
+
+    /* Online Check: kolommen top-alignen en spacing aanscherpen */
+.advice-form{
+  align-items: start;     /* van 'end' naar 'start' */
+  row-gap: 14px;          /* iets compacter */
+}
+
+.advice-form .group{
+  margin: 0;              /* geen extra marge boven/onder de cards */
+}
+
+.advice-form-usage{
+  margin-top: 0;          /* ‘Gebruik’ direct onder de twee cards */
+  padding-top: 6px;
+}
+
+/* optioneel: iets minder ruimte voor de submitrij */
+.advice-form-submit{
+  margin-top: 6px;
+}
+
   </style>
 </head>
 <body>
@@ -238,7 +254,7 @@
         <div>
           <span class="pill">Eerlijk advies • Snelle hulp</span>
           <h1>Wij maken jouw computer weer als nieuw</h1>
-          <p>Upgrade naar Windows 11, of – als dat niet kan – overstappen naar Linux. Wij zorgen dat je computer soepel werkt, met duidelijke uitleg en vaste prijsafspraak.</p>
+          <p>Upgrade naar Windows 11, of – als dat niet kan – overstappen op Linux. Wij zorgen dat je computer soepel werkt, met duidelijke uitleg en vaste prijsafspraak.</p>
           <div class="cta">
             <a class="btn btn-alt" href="#diensten">Bekijk onze diensten</a>
             <a class="btn btn-outline" href="#tarieven">Bekijk tarieven</a>
@@ -262,91 +278,98 @@
   <!-- Diensten -->
   <section id="diensten">
     <div class="container">
+      <!-- ONLINE CHECK -->
       <div class="advice-highlight">
         <div class="advice-highlight-inner" id="card-online-check">
           <div class="intro">
-            <div class="intro-icon">🔍</div>
+            <div class="intro-icon" aria-hidden="true">🔍</div>
             <div>
               <h2>Online Check (gratis)</h2>
               <p>Direct advies op basis van jouw invoer + onze database.</p>
             </div>
           </div>
 
-          <!-- Alleen merk & model verplicht; GET naar advies.php -->
-          <form id="pcslim-check-form" action="advise.php" method="get" class="advice-form">
-            <div>
-              <label class="lbl" for="brand">Merk</label>
-              <input class="inp" id="brand" name="brand" placeholder="Bijv. Dell" required autocomplete="off">
-            </div>
-            <div>
-              <label class="lbl" for="model">Model/Type</label>
-              <input class="inp" id="model" name="model" placeholder="Bijv. Inspiron 5570" required autocomplete="off">
-            </div>
-            <div>
-              <label class="lbl" for="ram">RAM (GB)</label>
-              <select class="inp" id="ram" name="ram">
-                <option value="">Kies… (optioneel)</option>
-                <option>2</option>
-                <option>4</option>
-                <option>6</option>
-                <option>8</option>
-                <option>12</option>
-                <option>16</option>
-                <option>32</option>
-              </select>
-            </div>
-            <div>
-              <label class="lbl" for="storage_type">Opslag</label>
-              <select class="inp" id="storage_type" name="storage_type">
-                <option value="">Kies… (optioneel)</option>
-                <option value="SSD">SSD</option>
-                <option value="HDD">HDD</option>
-                <option value="Onbekend">Onbekend</option>
-              </select>
-            </div>
-            <div>
-              <label class="lbl" for="storage_gb">Opslag (GB)</label>
-              <select class="inp" id="storage_gb" name="storage_gb">
-                <option value="">Kies… (optioneel)</option>
-                <option>120</option>
-                <option>240</option>
-                <option>256</option>
-                <option>480</option>
-                <option>500</option>
-                <option>512</option>
-                <option>960</option>
-                <option>1000</option>
-                <option>1024</option>
-              </select>
-            </div>
-            <div>
-              <label class="lbl" for="cpu_year">Bouwjaar/CPU</label>
-              <select class="inp" id="cpu_year" name="cpu_year">
-                <option value="">Kies… (optioneel)</option>
-                <option value="pre2015">≤ 2014</option>
-                <option value="2015-2017">2015–2017</option>
-                <option value="2018-2020">2018–2020</option>
-                <option value="2021plus">2021+</option>
-              </select>
-            </div>
-
-            <div class="advice-form-usage">
-              <label class="lbl">Gebruik</label>
-              <div class="usage-options">
-                <label class="chip"><input type="radio" name="use" value="basis"> Basis</label>
-                <label class="chip"><input type="radio" name="use" value="standaard"> Standaard</label>
-                <label class="chip"><input type="radio" name="use" value="zwaar"> Zwaar</label>
+          <!-- Alleen merk & model verplicht; GET naar advise.php -->
+          <form id="pcslim-check-form" action="advise.php" method="get" class="advice-form" novalidate>
+            <!-- Linkerkolom: toestel -->
+            <div class="group">
+              <div class="group-title">Toestel</div>
+              <div>
+                <label class="lbl" for="brand">Merk</label>
+                <input class="inp" id="brand" name="brand" placeholder="Bijv. Dell" required autocomplete="off" aria-describedby="brandHelp">
+                <small id="brandHelp" class="hint">Tip: staat op de behuizing of in Windows bij <em>Systeeminformatie</em>.</small>
+              </div>
+              <div>
+                <label class="lbl" for="model">Model/Type</label>
+                <input class="inp" id="model" name="model" placeholder="Bijv. Inspiron 5570" required autocomplete="off" aria-describedby="modelHelp">
+                <small id="modelHelp" class="hint">Exact model helpt: vaak op een sticker onderop of bij <em>Over deze pc</em>.</small>
+              </div>
+              <div>
+                <label class="lbl" for="cpu_year">Bouwjaar/CPU</label>
+                <select class="inp" id="cpu_year" name="cpu_year">
+                  <option value="">Kies… (optioneel)</option>
+                  <option value="pre2015">≤ 2014</option>
+                  <option value="2015-2017">2015–2017</option>
+                  <option value="2018-2020">2018–2020</option>
+                  <option value="2021plus">2021+</option>
+                </select>
               </div>
             </div>
 
-            <div class="advice-form-submit">
+            <!-- Rechterkolom: prestaties -->
+            <div class="group">
+              <div class="group-title">Prestaties</div>
+              <div class="grid-2">
+                <div>
+                  <label class="lbl" for="ram">RAM (GB)</label>
+                  <select class="inp" id="ram" name="ram">
+                    <option value="">Kies… (optioneel)</option>
+                    <option>2</option><option>4</option><option>6</option><option>8</option>
+                    <option>12</option><option>16</option><option>32</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="lbl" for="storage_type">Opslag</label>
+                  <select class="inp" id="storage_type" name="storage_type">
+                    <option value="">Kies… (optioneel)</option>
+                    <option value="SSD">SSD</option>
+                    <option value="HDD">HDD</option>
+                    <option value="Onbekend">Onbekend</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label class="lbl" for="storage_gb">Opslag (GB)</label>
+                <select class="inp" id="storage_gb" name="storage_gb">
+                  <option value="">Kies… (optioneel)</option>
+                  <option>120</option><option>240</option><option>256</option><option>480</option>
+                  <option>500</option><option>512</option><option>960</option><option>1000</option><option>1024</option>
+                </select>
+              </div>
+                <!-- Gebruik geïntegreerd in prestaties -->
+  <div class="advice-form-usage" role="group" aria-labelledby="gebruikLabel">
+    <label id="gebruikLabel" class="lbl">Gebruik</label>
+    <div class="usage-options">
+      <label class="chip"><input type="radio" name="use" value="basis"> Basis</label>
+      <label class="chip"><input type="radio" name="use" value="standaard"> Standaard</label>
+      <label class="chip"><input type="radio" name="use" value="zwaar"> Zwaar</label>
+    </div>
+  </div>
+</div><div class="advice-form-submit">
               <button type="submit" class="btn-primary">Geef mijn advies</button>
             </div>
+            </div>
+
+           
+
+            <!-- Versturen -->
+            
           </form>
 
-          <div id="pcslim-check-result" class="advice-result"></div>
+          <div id="pcslim-check-result" class="advice-result" aria-live="polite"></div>
         </div>
       </div>
+      <!-- /ONLINE CHECK -->
 
       <div class="section-title">
         <h2>Onze Diensten</h2>
@@ -720,6 +743,8 @@
     modelInp.addEventListener('input', loadModels);
   })();
   </script>
+
+  <!-- Online check submit + chat assist -->
   <script>
   (function(){
   const form   = document.getElementById('pcslim-check-form');
@@ -733,9 +758,7 @@
     const sourceKey = data.match && data.match.source && data.match.source !== 'models'
       ? data.match.source
       : null;
-    const sourceMap = {
-      models_ai_stage: 'bron: AI-verrijking (voorlopig)'
-    };
+    const sourceMap = { models_ai_stage: 'bron: AI-verrijking (voorlopig)' };
     const sourceNote = sourceKey ? `<div style="color:#99a6bd;font-size:0.8rem;margin-top:2px;">${sourceMap[sourceKey] || `bron: ${sourceKey}`}</div>` : '';
 
     return `
@@ -1064,7 +1087,7 @@
         }, {once:true});
       }
 
-      // startgesprek: geef context aan de assistent zonder het als bericht te tonen.
+      // startgesprek
       const autoMessage = `De bezoeker wil weten of Windows 11 mogelijk is. In het formulier staat merk "${state.brand}" en model "${state.model}", maar er is geen match (reden: ${state.reason||'onbekend'}). Gebruik eerst de context en probeer het exacte modelnummer/productcode te achterhalen (verwijs naar stickers, BIOS, Windows systeeminfo). Vraag pas daarna eventueel naar hardwaregegevens en doe maximaal één concrete vraag per beurt. Geen vragen over wensen of gebruik. Zodra je genoeg weet moet je een [[ADVISE ...]]-directive sturen.`;
       askAssistant(autoMessage, {displayUser:false});
     }
@@ -1095,9 +1118,7 @@
         throw new Error('Kon het antwoord niet lezen (ongeldige JSON).');
       }
 
-      if (!data) {
-        throw new Error(`Serverfout (${r.status})`);
-      }
+      if (!data) { throw new Error(`Serverfout (${r.status})`); }
       if (!r.ok && (!Object.prototype.hasOwnProperty.call(data, 'found') || data.error)) {
         throw new Error(data.error || `Serverfout (${r.status})`);
       }

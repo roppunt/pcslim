@@ -144,3 +144,48 @@
   .linux-benefits { grid-template-columns: 1fr; }
   .linux-options { grid-template-columns: 1fr; }
 }
+
+.advice-form-submit {
+  margin-top: 12px;
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+}
+
+@media (max-width: 719px) {
+  .advice-form-submit { justify-content: center; }
+}
+
+/* Laat de knop onderdeel worden van de kaart */
+#advice-highlight-inner,
+#card-online-check {
+  position: relative;
+}
+
+#advice-highlight-inner form {
+  padding-bottom: 16px; /* ruimte voor knop */
+}
+
+.advice-form-submit {
+  background: #f7fbff;
+  border-top: 1px solid #eaf1f9;
+  border-radius: 0 0 14px 14px;
+  margin: 18px -14px -14px; /* breder zodat hij 'in de kaart' valt */
+  padding: 14px 20px;
+  display: flex;
+  justify-content: flex-end;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.03);
+}
+
+/* knop zelf iets breder */
+.advice-form-submit .btn-primary {
+  background: var(--primary);
+  border-radius: 10px;
+  font-weight: 600;
+  padding: 12px 22px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.12);
+}
+
+.advice-form-submit .btn-primary:hover {
+  background: var(--primary-600);
+  transform: translateY(-1px);
+}
