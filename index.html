@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <link rel="stylesheet" href="assets/styles-inline.css">
   <style>
     :root{
       --primary:#245c8e; --primary-600:#1d4b74; --accent:#f39c12;
@@ -187,6 +188,23 @@
       <a class="btn btn-primary nav-cta" href="#contact">Neem contact op</a>
     </div>
   </header>
+
+  <aside id="esu-banner" class="notice notice--info esu-banner" role="note" aria-live="polite" hidden>
+    <div class="esu-banner__inner">
+      <div class="esu-banner__icon" aria-hidden="true">🛡️</div>
+      <div class="esu-banner__content">
+        <strong>Belangrijk voor Windows 10-gebruikers</strong><br>
+        Microsoft stopt op <strong>14 oktober 2025</strong> met de gewone beveiligingsupdates voor Windows 10.<br>
+        Particuliere gebruikers kunnen via <strong>Extended Security Updates (ESU)</strong> tot <strong>oktober 2026</strong> beveiligd blijven:
+        <ul>
+          <li><strong>Gratis</strong> als je bent aangemeld met een Microsoft-account op je pc.</li>
+          <li>Gebruik je een lokaal account en wil je dat zo laten? Dan is er een <em>kleine eenmalige aankoop</em> mogelijk.</li>
+        </ul>
+        Je hebt dus nog even tijd om te kijken of jouw computer alsnog naar <strong>Windows 11</strong> kan worden geüpgraded, of dat <strong>overstappen op Linux</strong> voor jou beter is – veilig, betrouwbaar en vaak merkbaar sneller op oudere laptops en pc’s.
+      </div>
+      <button class="esu-banner__close" type="button" aria-label="Melding sluiten">&times;</button>
+    </div>
+  </aside>
 
   <!-- Hero -->
   <section id="home" class="hero">
@@ -993,6 +1011,25 @@
   });
 })();
 </script>
+
+  <script>
+  (function() {
+    try {
+      var KEY = 'pcslim_esu_closed_v1';
+      var el = document.getElementById('esu-banner');
+      if (!el) return;
+      if (localStorage.getItem(KEY) === '1') return;
+      el.hidden = false;
+      var btn = el.querySelector('.esu-banner__close');
+      if (btn) {
+        btn.addEventListener('click', function () {
+          el.hidden = true;
+          try { localStorage.setItem(KEY, '1'); } catch(e){}
+        });
+      }
+    } catch (e) { }
+  })();
+  </script>
 
 </body>
 </html>
