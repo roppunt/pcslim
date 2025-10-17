@@ -12,6 +12,8 @@ declare(strict_types=1);
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
+loadEnvironmentVariables(dirname(__DIR__) . '/.env');
+
 require_once __DIR__ . '/conn.php';
 
 /**
@@ -30,6 +32,68 @@ function respond(array $payload, int $status = 200): void
 function fail(string $message, int $status = 400, array $extra = []): void
 {
     respond(['ok' => false, 'error' => $message] + $extra, $status);
+}
+
+/**
+ * Laadt omgevingsvariabelen uit een .env-bestand.
+ */
+function loadEnvironmentVariables(?string $envPath = null): void
+{
+    static $loaded = false;
+
+    if ($loaded) {
+        return;
+    }
+
+    $loaded = true;
+
+    $envPath ??= dirname(__DIR__) . '/.env';
+    if (!is_string($envPath) || $envPath === '' || !is_readable($envPath)) {
+        return;
+    }
+
+    $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    if ($lines === false) {
+        return;
+    }
+
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if ($line === '' || str_starts_with($line, '#')) {
+            continue;
+        }
+
+        if (str_starts_with($line, 'export ')) {
+            $line = substr($line, 7);
+        }
+
+        $parts = explode('=', $line, 2);
+        if (count($parts) !== 2) {
+            continue;
+        }
+
+        [$name, $value] = $parts;
+        $name = trim($name);
+        if ($name === '') {
+            continue;
+        }
+
+        $value = trim($value);
+        if (
+            (str_starts_with($value, '"') && str_ends_with($value, '"')) ||
+            (str_starts_with($value, "'") && str_ends_with($value, "'"))
+        ) {
+            $value = substr($value, 1, -1);
+        }
+
+        if (getenv($name) !== false || array_key_exists($name, $_ENV)) {
+            continue;
+        }
+
+        putenv("{$name}={$value}");
+        $_ENV[$name] = $value;
+        $_SERVER[$name] = $value;
+    }
 }
 
 /**
@@ -785,7 +849,13 @@ $contextSummary = renderContextSummary($context);
  */
 function callLanguageModel(array $messages, string $contextSummary): array
 {
-    $apiKey = getenv('OPENAI_API_KEY') ?: '<openai_key>';
+    $apiKey = getenv('OPENAI_API_KEY');
+    if (!is_string($apiKey) || trim($apiKey) === '') {
+        fail('Serverconfiguratie ontbreekt: OPENAI_API_KEY is niet ingesteld.', 500);
+    }
+
+    $apiKey = trim($apiKey);
+
     $model = getenv('OPENAI_MODEL') ?: 'gpt-4o-mini';
     $baseUrl = rtrim(getenv('OPENAI_BASE_URL') ?: 'https://api.openai.com/v1', '/');
 
