@@ -31,20 +31,92 @@ function pcs_fetch_url(string $url): ?string {
   return $ok ? $body : null;
 }
 
+function pcs_str_ends_with(string $haystack, string $needle): bool {
+  if ($needle === '') return true;
+  $needleLength = strlen($needle);
+  return $needleLength <= strlen($haystack) && substr($haystack, -$needleLength) === $needle;
+}
+
+function pcs_parse_ics_datetime(string $value, ?string $tzid, bool $isDateOnly): ?DateTime {
+  $defaultTz = new DateTimeZone(date_default_timezone_get());
+
+  if ($isDateOnly) {
+    $dt = DateTime::createFromFormat('Ymd', $value, $tzid ? new DateTimeZone($tzid) : $defaultTz);
+    if (!$dt) return null;
+    $dt->setTimezone($defaultTz);
+    return $dt;
+  }
+
+  $hasZulu = pcs_str_ends_with($value, 'Z');
+  if ($hasZulu) {
+    $value = substr($value, 0, -1);
+  }
+
+  $sourceTz = $tzid ? new DateTimeZone($tzid) : ($hasZulu ? new DateTimeZone('UTC') : $defaultTz);
+  $dt = DateTime::createFromFormat('Ymd\THis', $value, $sourceTz);
+  if (!$dt) return null;
+  $dt->setTimezone($defaultTz);
+  return $dt;
+}
+
 function pcs_parse_ics_events(string $ics): array {
-  // Eenvoudige DTSTART/DTEND-parser (UTC of lokaal)
+  // Maak regels eenduidig en verwijder folded lines
   $ics = str_replace(["\r\n", "\r"], "\n", $ics);
+  $ics = preg_replace("/\n[ \t]/", '', $ics);
+
   preg_match_all('/BEGIN:VEVENT(.*?)END:VEVENT/s', $ics, $blocks);
   $events = [];
+
   foreach ($blocks[1] as $event) {
-    if (!preg_match('/DTSTART.*:(\d{8}T\d{6})Z?/', $event, $s)) continue;
-    if (!preg_match('/DTEND.*:(\d{8}T\d{6})Z?/', $event, $e)) continue;
-    $start = DateTime::createFromFormat('Ymd\THis', $s[1], new DateTimeZone('UTC'));
-    $end   = DateTime::createFromFormat('Ymd\THis', $e[1], new DateTimeZone('UTC'));
-    $tz = new DateTimeZone(date_default_timezone_get());
-    $start->setTimezone($tz); $end->setTimezone($tz);
-    $events[] = ['start' => $start, 'end' => $end];
+    $start = $end = null;
+    $startDateOnly = $endDateOnly = false;
+
+    foreach (explode("\n", trim($event)) as $line) {
+      $line = trim($line);
+      if ($line === '' || strpos($line, ':') === false) continue;
+
+      [$prop, $rawValue] = explode(':', $line, 2);
+      $rawValue = trim($rawValue);
+      $name = $prop;
+      $tzid = null;
+      $isDateOnly = false;
+
+      if (strpos($prop, ';') !== false) {
+        $pieces = explode(';', $prop);
+        $name = array_shift($pieces);
+        foreach ($pieces as $piece) {
+          if (stripos($piece, 'TZID=') === 0) {
+            $tzid = substr($piece, 5);
+          } elseif (stripos($piece, 'VALUE=DATE') === 0) {
+            $isDateOnly = true;
+          }
+        }
+      }
+
+      if ($name === 'DTSTART') {
+        $start = pcs_parse_ics_datetime($rawValue, $tzid, $isDateOnly);
+        $startDateOnly = $isDateOnly;
+      } elseif ($name === 'DTEND') {
+        $end = pcs_parse_ics_datetime($rawValue, $tzid, $isDateOnly);
+        $endDateOnly = $isDateOnly;
+      }
+    }
+
+    if ($start && $end) {
+      if ($startDateOnly) {
+        $start->setTime(0, 0);
+      }
+      if ($endDateOnly) {
+        $end->setTime(0, 0);
+      }
+      $events[] = ['start' => $start, 'end' => $end];
+    }
   }
+
+  usort($events, function ($a, $b) {
+    return $a['start'] <=> $b['start'];
+  });
+
   return $events;
 }
 
