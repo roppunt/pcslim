@@ -1,1198 +1,346 @@
+<?php
+/* ---------------------------------------------------------
+   PC-Slim – index.php met bereikbaarheid op basis van ICS
+   ---------------------------------------------------------
+   - Zet je pagina online als index.php (niet index.html)
+   - Pas $ICS_URL en openingstijden (09:00–18:00) naar wens aan
+   - Cache: 60 seconden
+--------------------------------------------------------- */
+
+declare(strict_types=1);
+
+/* ==== Instellingen ==== */
+$ICS_URL = "https://export.calendar.online/ics/2229257/13e2e96533a8b26a68d6/werkplanner.ics?past_months=3&future_months=36";
+$OPEN_FROM = 9;   // 09:00
+$OPEN_TILL = 18;  // 18:00
+$CACHE_SECONDS = 60;
+
+/* ==== Helpers ==== */
+function pcs_fetch_url(string $url): ?string {
+  $ch = curl_init($url);
+  curl_setopt_array($ch, [
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_FOLLOWLOCATION => true,
+    CURLOPT_CONNECTTIMEOUT => 6,
+    CURLOPT_TIMEOUT => 10,
+    CURLOPT_USERAGENT => 'PC-Slim Availability',
+  ]);
+  $body = curl_exec($ch);
+  $ok = ($body !== false) && (curl_getinfo($ch, CURLINFO_HTTP_CODE) < 400);
+  curl_close($ch);
+  return $ok ? $body : null;
+}
+
+function pcs_parse_ics_events(string $ics): array {
+  // Eenvoudige DTSTART/DTEND-parser (UTC of lokaal)
+  $ics = str_replace(["\r\n", "\r"], "\n", $ics);
+  preg_match_all('/BEGIN:VEVENT(.*?)END:VEVENT/s', $ics, $blocks);
+  $events = [];
+  foreach ($blocks[1] as $event) {
+    if (!preg_match('/DTSTART.*:(\d{8}T\d{6})Z?/', $event, $s)) continue;
+    if (!preg_match('/DTEND.*:(\d{8}T\d{6})Z?/', $event, $e)) continue;
+    $start = DateTime::createFromFormat('Ymd\THis', $s[1], new DateTimeZone('UTC'));
+    $end   = DateTime::createFromFormat('Ymd\THis', $e[1], new DateTimeZone('UTC'));
+    $tz = new DateTimeZone(date_default_timezone_get());
+    $start->setTimezone($tz); $end->setTimezone($tz);
+    $events[] = ['start' => $start, 'end' => $end];
+  }
+  return $events;
+}
+
+function pcs_availability_label(array $events, int $openFrom, int $openTill): string {
+  $now  = new DateTime();
+  $hour = (int)$now->format('H');
+
+  if ($hour < $openFrom) return "❌ Nog niet bereikbaar (vanaf " . sprintf("%02d:00", $openFrom) . ").";
+  if ($hour >= $openTill) return "❌ Niet bereikbaar (na " . sprintf("%02d:00", $openTill) . ").";
+
+  foreach ($events as $ev) {
+    $bufferedEnd = (clone $ev['end'])->modify('+30 minutes'); // 30 min buffer
+    if ($now >= $ev['start'] && $now <= $bufferedEnd) {
+      return "❌ Op dit moment bezet (afspraak).";
+    }
+  }
+  return "✅ Nu bereikbaar.";
+}
+
+function pcs_get_availability(string $icsUrl, int $openFrom, int $openTill, int $cacheSeconds = 60): string {
+  $cacheFile = __DIR__ . '/cache/availability.json';
+  if (!is_dir(dirname($cacheFile))) @mkdir(dirname($cacheFile), 0775, true);
+
+  if (is_file($cacheFile) && (time() - filemtime($cacheFile) < $cacheSeconds)) {
+    $cached = json_decode(@file_get_contents($cacheFile), true);
+    if (!empty($cached['status'])) return $cached['status'];
+  }
+
+  $ics = pcs_fetch_url($icsUrl);
+  if ($ics === null) {
+    $status = "⚠️ Status onbekend (agenda niet bereikbaar).";
+    @file_put_contents($cacheFile, json_encode(['status' => $status], JSON_UNESCAPED_UNICODE));
+    return $status;
+  }
+
+  $events = pcs_parse_ics_events($ics);
+  $status = pcs_availability_label($events, $openFrom, $openTill);
+  @file_put_contents($cacheFile, json_encode(['status' => $status], JSON_UNESCAPED_UNICODE));
+  return $status;
+}
+
+/* ==== Status ophalen ==== */
+$AVAIL_STATUS = pcs_get_availability($ICS_URL, $OPEN_FROM, $OPEN_TILL, $CACHE_SECONDS);
+?>
 <!DOCTYPE html>
 <html lang="nl">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>PC Slim – Wij maken jouw computer weer als nieuw</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <title>PC Slim – Eerlijk advies & snelle hulp</title>
   <link rel="icon" href="/favicon.ico" type="image/x-icon">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
-  <link rel="stylesheet" href="assets/styles-inline.css">
   <style>
     :root{
       --primary:#245c8e; --primary-600:#1d4b74; --accent:#f39c12;
-      --bg:#f4f6f9; --text:#273142; --muted:#6b778c; --card:#fff; --success:#22a06b;
+      --bg:#f6f8fb; --text:#223041; --muted:#6b778c; --card:#fff;
       --shadow:0 10px 25px rgba(0,0,0,.08);
     }
-    *{box-sizing:border-box}
-    html,body{margin:0;padding:0}
-    body{font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:var(--text);background:var(--bg);line-height:1.6}
+    *{box-sizing:border-box} html,body{margin:0} body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--text);background:var(--bg);line-height:1.6}
     .container{width:92%;max-width:1200px;margin:0 auto}
-    .btn{display:inline-block;padding:12px 18px;border-radius:8px;text-decoration:none;font-weight:600;transition:.25s;cursor:pointer;border:0}
-    .btn-primary{background:var(--primary);color:#fff}
-    .btn-primary:hover{background:var(--primary-600);transform:translateY(-1px)}
-    .btn-outline{background:transparent;border:2px solid #fff;color:#fff}
-    .btn-outline:hover{background:#ffffff22}
-    .btn-alt{background:var(--accent);color:#fff}
-    .btn-alt:hover{filter:brightness(.95)}
-    .pill{display:inline-block;padding:4px 10px;border-radius:999px;background:#fff;color:var(--primary);font-weight:700;font-size:.8rem}
-
-    header{position:sticky;top:0;z-index:50;background:#fff;box-shadow:0 6px 20px rgba(0,0,0,.06)}
+    header{position:sticky;top:0;background:#fff;box-shadow:0 6px 20px rgba(0,0,0,.06);z-index:50}
     .nav{display:flex;align-items:center;justify-content:space-between;height:64px}
     .brand{display:flex;align-items:center;gap:10px}
-    .brand .logo{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,var(--primary),#2f76b2);display:grid;place-items:center;color:#fff;font-weight:800}
-    .brand .name{font-weight:800;font-size:1.25rem}
-    .brand .name span{color:var(--accent)}
+    .logo{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,var(--primary),#2f76b2);display:grid;place-items:center;color:#fff;font-weight:800}
+    .name{font-weight:800;font-size:1.2rem}.name span{color:var(--accent)}
     nav ul{display:flex;gap:22px;list-style:none;margin:0;padding:0}
     nav a{color:var(--text);text-decoration:none;font-weight:600;opacity:.9}
     nav a:hover{opacity:1;color:var(--primary)}
-    .nav-cta{display:none}
-    @media (min-width:920px){ .nav-cta{display:block} }
-
-    .hero{position:relative;background:linear-gradient(180deg,rgba(36,92,142,.9),rgba(36,92,142,.86)),url('https://images.unsplash.com/photo-1518779578993-ec3579fee39f?q=80&w=1600&auto=format&fit=crop') center/cover no-repeat;padding:90px 0;color:#fff}
-    .hero .grid{display:grid;gap:36px;align-items:center}
-    @media (min-width:980px){ .hero .grid{grid-template-columns:1.1fr .9fr} }
-    .hero h1{font-size:2.3rem;line-height:1.2;margin:.4rem 0 1rem}
-    @media (min-width:980px){ .hero h1{font-size:2.8rem} }
-    .hero p{opacity:.95;max-width:720px}
-    .hero .cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:18px}
-    .hero-card{background:#fff;border-radius:14px;padding:20px;box-shadow:var(--shadow);color:var(--text)}
-    .hero-card h3{margin:0 0 10px;color:var(--primary)}
-    .hero-row{display:flex;gap:12px;align-items:flex-start;margin:10px 0}
-    .hero-icon{width:36px;height:36px;border-radius:10px;background:#eef4fb;display:grid;place-items:center;color:var(--primary)}
-
-    .welcome-band{background:#0f3f66;color:#fff;padding:14px 0;font-weight:600;text-align:center}
-    section{padding:80px 0}
-    .section-title{text-align:center;margin-bottom:44px}
-    .section-title h2{font-size:1.9rem;margin:.2rem 0 .6rem;color:var(--primary)}
-    .section-title p{color:#e2e9f2;max-width:760px;margin:0 auto}
-
-    .cards{display:grid;gap:22px}
-    @media (min-width:900px){ .cards{grid-template-columns:repeat(3,1fr)} }
-    .card{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:26px;display:flex;flex-direction:column;height:100%}
-    .card-head{display:flex;align-items:center;gap:12px;margin-bottom:10px}
-    .card .icon{width:44px;height:44px;border-radius:12px;background:#eef4fb;display:grid;place-items:center;color:var(--primary);font-size:1.2rem}
-    .price{color:var(--success);font-weight:800;margin:10px 0}
-    .card-footer{margin-top:auto}
-    .card-footer .price{margin-bottom:10px;font-weight:700;color:#22a06b}
-
-    .aud{display:grid;gap:22px}
-    @media (min-width:900px){ .aud{grid-template-columns:repeat(3,1fr)} }
-    .aud .item{text-align:center;background:#fff;border-radius:14px;padding:28px;box-shadow:var(--shadow)}
-    .aud .item i{font-size:32px;color:var(--primary);margin-bottom:10px}
-
-    .pricing{display:grid;gap:22px}
-    @media (min-width:1000px){ .pricing{grid-template-columns:repeat(3,1fr)} }
-    .price-card{background:#fff;border-radius:16px;box-shadow:var(--shadow);overflow:hidden;transform:translateZ(0)}
-    .price-top{background:var(--primary);color:#fff;padding:22px;text-align:center}
-    .price-top h3{margin:0;font-size:1.2rem}
-    .popular{position:absolute;right:18px;top:-12px;background:var(--accent);color:#fff;padding:4px 10px;border-radius:999px;font-weight:800;font-size:.8rem}
-    .price-body{padding:24px;text-align:center}
-    .money{font-size:2.2rem;font-weight:800;margin:8px 0 16px}
-    .features{list-style:none;padding:0;margin:0 0 18px}
-    .features li{padding:10px 0;border-bottom:1px solid #eef1f7}
-    .features li:last-child{border-bottom:none}
-    .price-cta{padding:0 24px 24px}
-
-    .usp{background:var(--primary);color:#fff;padding:70px 0}
-    .usp-grid{display:grid;gap:26px;align-items:stretch}
-    @media (min-width:1000px){ .usp-grid{grid-template-columns:repeat(3,1fr)} }
-    .usp-box{background:#ffffff14;border:1px solid #ffffff26;border-radius:14px;padding:24px;text-align:center}
-    .usp-box i{font-size:34px;color:var(--accent);margin-bottom:12px}
-    .usp-box h3{margin:8px 0 6px}
-    .usp-box p{opacity:.95}
-
-    .contact{display:grid;gap:26px}
-    @media (min-width:980px){ .contact{grid-template-columns:1fr 1.2fr} }
-    .info h3{color:var(--primary);margin:0 0 6px}
-    .info p{margin:4px 0;color:var(--muted)}
-    .contact form{background:#fff;border-radius:14px;box-shadow:var(--shadow);padding:24px}
-    .grid-2{display:grid;gap:14px}
-    @media (min-width:680px){ .grid-2{grid-template-columns:1fr 1fr} }
-    label{font-weight:600;font-size:.95rem;margin-bottom:6px;display:block}
-    input,select,textarea{width:100%;padding:12px 14px;border:1px solid #e4e7ee;border-radius:10px;font-size:1rem;outline:0;background:#fff}
-    textarea{min-height:140px;resize:vertical}
-    .form-row{margin-bottom:14px}
-
-    details{background:#fff;border-radius:12px;box-shadow:var(--shadow);padding:18px;margin-bottom:12px}
-    summary{cursor:pointer;font-weight:700;color:var(--primary)}
-    summary::-webkit-details-marker{display:none}
-    summary:after{content:"+";float:right;font-weight:800}
-    details[open] summary:after{content:"–"}
-    details p{margin:10px 0 0;color:#445166}
-
-    footer{background:#1c2633;color:#cbd3df;padding:60px 0 28px;margin-top:50px}
-    .foot{display:grid;gap:30px}
-    @media (min-width:1000px){ .foot{grid-template-columns:2fr 1fr 1fr 1fr} }
-    .foot h4{color:#fff;margin:0 0 10px}
-    .foot a{color:#cbd3df;text-decoration:none}
-    .foot a:hover{color:#fff}
-    .copy{border-top:1px solid #2a3545;margin-top:26px;padding-top:18px;text-align:center;color:#94a1b2}
-
-    /* Online Check kaart: klikproblemen uitschakelen */
-    #card-online-check { position: relative; z-index: 1; }
-    #card-online-check form { position: relative; z-index: 2; }
-    #card-online-check a.stretched-link, #card-online-check .card-link,
-    #card-online-check::before, #card-online-check::after { pointer-events: none !important; }
-    #card-online-check form, #card-online-check form * { pointer-events: auto !important; }
-
-    /* Mini UI helpers voor Online Check */
-    .lbl{display:block;font-weight:600;color:#2d4159;margin:2px 0 6px;}
-    .hint{display:block;font-size:.85rem;color:#6b778c;margin-top:4px}
-    .inp{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #dfe7ef;background:#f8fbfe;color:#1a2a3f;}
-    .inp:focus{outline:none;border-color:#9ac3ff;background:#fff;}
-    .chip{display:inline-flex;gap:8px;align-items:center;padding:8px 12px;border-radius:999px;border:1px solid #dfe7ef;background:#f3f7fb;color:#395172;cursor:pointer;line-height:1}
-    .chip input{accent-color:#2e66a7}
-    .btn-ghost{all:unset;border:1px solid #dfe7ef;color:#274564;background:#fff;padding:10px 14px;border-radius:10px;cursor:pointer;}
-
-    /* Online Check – Kaart */
-    .advice-highlight{margin:0 auto 40px;width:100%;max-width:980px}
-    .advice-highlight-inner{
-      background:linear-gradient(135deg,#f7fbff,#ffffff);
-      padding:24px;border-radius:22px;box-shadow:var(--shadow);border:1px solid #e7edf4
-    }
-    .advice-highlight h2{margin:0 0 6px;font-size:1.6rem;color:#143253}
-    .advice-highlight p{margin:0;color:#516476}
-    .advice-highlight .intro{display:flex;flex-direction:column;gap:8px;margin:0 0 12px}
-    .advice-highlight .intro-icon{font-size:32px}
-
-    /* Form grid + grove hiërarchie */
-    .advice-form{
-      margin-top:10px;
-      display:grid;gap:18px;align-items:end;
-      grid-template-columns:1fr;
-    }
-    .advice-form .group-title{font-weight:800;color:#1f3552;margin:2px 0 2px;font-size:.95rem}
-    .advice-form .group{
-      background:#fbfdff;border:1px solid #eaf1f9;border-radius:14px;padding:14px;
-      display:grid;gap:12px
-    }
-    .advice-form .group.grid-2{grid-template-columns:1fr}
-    @media (min-width:720px){
-      .advice-form{grid-template-columns:1fr 1fr;gap:18px}
-      .advice-form .group.grid-2{grid-template-columns:1fr 1fr;gap:14px}
-    }
-
-    .advice-form-usage{
-      display:flex;flex-direction:column;gap:10px;grid-column:1/-1
-    }
-    .usage-options{display:flex;gap:10px;flex-wrap:wrap}
-    .usage-options .chip{user-select:none}
-
-    .advice-form-submit{
-      display:flex;gap:10px;align-items:center;justify-content:flex-end;grid-column:1/-1;margin-top:2px
-    }
-
-    /* Compacte primaire knop in de Online Check-kaart */
-    #card-online-check .btn-primary {
-      padding: 10px 14px;border-radius: 10px;font-size: 0.95rem;
-    }
-
-    /* Resultaatkaart spacing */
-    .advice-result{margin-top:14px;display:none}
-    @media (min-width:720px){ .advice-result{margin-top:16px} }
-
-    /* Online Check: kolommen top-alignen en spacing aanscherpen */
-.advice-form{
-  align-items: start;     /* van 'end' naar 'start' */
-  row-gap: 14px;          /* iets compacter */
-}
-
-.advice-form .group{
-  margin: 0;              /* geen extra marge boven/onder de cards */
-}
-
-.advice-form-usage{
-  margin-top: 0;          /* ‘Gebruik’ direct onder de twee cards */
-  padding-top: 6px;
-}
-
-/* optioneel: iets minder ruimte voor de submitrij */
-.advice-form-submit{
-  margin-top: 6px;
-}
-
+    .hero{background:linear-gradient(180deg,rgba(36,92,142,.9),rgba(36,92,142,.86)),url('https://images.unsplash.com/photo-1518779578993-ec3579fee39f?q=80&w=1600&auto=format&fit=crop') center/cover;padding:80px 0;color:#fff}
+    .hero h1{font-size:2.4rem;line-height:1.2;margin:0 0 12px}
+    .hero p{opacity:.95;max-width:760px}
+    .btn{display:inline-block;padding:12px 18px;border-radius:8px;text-decoration:none;font-weight:700;transition:.25s}
+    .btn-primary{background:#fff;color:#0f3960}.btn-primary:hover{filter:brightness(.95)}
+    section{padding:70px 0}
+    .section-title{text-align:center;margin-bottom:38px}
+    .section-title h2{margin:0 0 8px;color:var(--primary)}
+    .cards{display:grid;gap:22px}@media(min-width:900px){.cards{grid-template-columns:repeat(3,1fr)}}
+    .card{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:24px;display:flex;flex-direction:column}
+    .card .icon{width:44px;height:44px;border-radius:12px;background:#eef4fb;display:grid;place-items:center;color:var(--primary)}
+    .card h3{margin:12px 0 6px}
+    .price{color:#1f7f55;font-weight:800;margin-top:auto}
+    .pricing{display:grid;gap:22px}@media(min-width:1000px){.pricing{grid-template-columns:repeat(3,1fr)}}
+    .price-card{background:#fff;border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
+    .price-top{background:var(--primary);color:#fff;padding:18px;text-align:center}
+    .price-body{padding:22px;text-align:center}.money{font-size:2rem;font-weight:800;margin:6px 0 14px}
+    .features{list-style:none;margin:0 0 16px;padding:0}.features li{padding:10px 0;border-bottom:1px solid #eef1f7}.features li:last-child{border-bottom:none}
+    .price-cta{padding:0 22px 22px;text-align:center}
+    .usp{background:var(--primary);color:#fff}.usp .box{background:#ffffff16;border:1px solid #ffffff25;border-radius:14px;padding:22px;text-align:center}
+    .usp-grid{display:grid;gap:22px}@media(min-width:980px){.usp-grid{grid-template-columns:repeat(3,1fr)}}
+    .contact{display:grid;gap:26px}@media(min-width:980px){.contact{grid-template-columns:1fr 1.2fr}}
+    .info h3{color:var(--primary);margin:0 0 6px}.info p{margin:4px 0;color:var(--muted)}
+    form{background:#fff;border-radius:14px;box-shadow:var(--shadow);padding:24px}
+    label{font-weight:600;display:block;margin:8px 0 6px} input,select,textarea{width:100%;padding:12px 14px;border:1px solid #e4e7ee;border-radius:10px;font-size:1rem}
+    textarea{min-height:130px}
+    footer{background:#1c2633;color:#cbd3df;padding:50px 0 28px;margin-top:50px}
+    .foot{display:grid;gap:26px}@media(min-width:1000px){.foot{grid-template-columns:2fr 1fr 1fr 1fr}}
+    .copy{border-top:1px solid #2a3545;margin-top:22px;padding-top:16px;text-align:center;color:#94a1b2}
+    .badge{display:inline-block;padding:3px 10px;border-radius:999px;background:#fff;color:#245c8e;font-weight:800;font-size:.8rem}
   </style>
 </head>
 <body>
 
-  <!-- Header -->
-  <header>
-    <div class="container nav">
-      <div class="brand">
-        <div class="logo">PC</div>
-        <div class="name">PC <span>Slim</span></div>
-      </div>
-      <nav aria-label="Hoofdmenu">
-        <ul>
-          <li><a href="#home">Home</a></li>
-          <li><a href="#diensten">Diensten</a></li>
-          <li><a href="#beloftes">Beloftes</a></li>
-          <li><a href="#werkwijze">Werkwijze</a></li>
-          <li><a href="#ervaringen">Ervaringen</a></li>
-          <li><a href="#tarieven">Tarieven</a></li>
-          <li><a href="#contact">Contact</a></li>
-          <li><a href="#faq">FAQ</a></li>
-        </ul>
-      </nav>
-      <a class="btn btn-primary nav-cta" href="#contact">Neem contact op</a>
+<header>
+  <div class="container nav">
+    <div class="brand"><div class="logo">PC</div><div class="name">PC <span>Slim</span></div></div>
+    <nav aria-label="Hoofdmenu">
+      <ul>
+        <li><a href="#diensten">Diensten</a></li>
+        <li><a href="#tarieven">Tarieven</a></li>
+        <li><a href="#contact">Contact</a></li>
+        <li><a href="#faq">FAQ</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="container">
+    <span class="badge">Eerlijk advies • Snelle hulp</span>
+    <h1>Betrouwbare computerhulp zonder vakjargon</h1>
+    <p>Windows 11-upgrade of – als dat niet kan – overstappen op Linux. Duidelijke uitleg en vaste prijsafspraak.</p>
+    <a class="btn btn-primary" href="#diensten">Bekijk onze diensten</a>
+  </div>
+</section>
+
+<section id="diensten">
+  <div class="container">
+    <div class="section-title">
+      <h2>Onze Diensten</h2>
+      <p>Complete computerondersteuning voor particulieren en kleine bedrijven.</p>
     </div>
-  </header>
 
-  <aside id="esu-banner" class="notice notice--info esu-banner" role="note" aria-live="polite" hidden>
-    <div class="esu-banner__inner">
-      <div class="esu-banner__icon" aria-hidden="true">🛡️</div>
-      <div class="esu-banner__content">
-        <strong>Belangrijk voor Windows 10-gebruikers</strong><br>
-        Microsoft stopt op <strong>14 oktober 2025</strong> met de gewone beveiligingsupdates voor Windows 10.<br>
-        Particuliere gebruikers kunnen via <strong>Extended Security Updates (ESU)</strong> tot <strong>oktober 2026</strong> beveiligd blijven:
-        <ul>
-          <li><strong>Gratis</strong> als je bent aangemeld met een Microsoft-account op je pc.</li>
-          <li>Gebruik je een lokaal account en wil je dat zo laten? Dan is er een <em>kleine eenmalige aankoop</em> mogelijk.</li>
-        </ul>
-        Je hebt dus nog even tijd om te kijken of jouw computer alsnog naar <strong>Windows 11</strong> kan worden geüpgraded, of dat <strong>overstappen op Linux</strong> voor jou beter is – veilig, betrouwbaar en vaak merkbaar sneller op oudere laptops en pc’s.
-      </div>
-      <button class="esu-banner__close" type="button" aria-label="Melding sluiten">&times;</button>
-    </div>
-  </aside>
-
-  <!-- Hero -->
-  <section id="home" class="hero">
-    <div class="container">
-      <div class="grid">
-        <div>
-          <span class="pill">Eerlijk advies • Snelle hulp</span>
-          <h1>Wij maken jouw computer weer als nieuw</h1>
-          <p>Upgrade naar Windows 11, of – als dat niet kan – overstappen op Linux. Wij zorgen dat je computer soepel werkt, met duidelijke uitleg en vaste prijsafspraak.</p>
-          <div class="cta">
-            <a class="btn btn-alt" href="#diensten">Bekijk onze diensten</a>
-            <a class="btn btn-outline" href="#tarieven">Bekijk tarieven</a>
-          </div>
-        </div>
-        <div class="hero-card">
-          <h3>Wat je krijgt</h3>
-          <div class="hero-row"><div class="hero-icon"><i class="fa-regular fa-circle-check"></i></div><div><strong>Upgrades zonder zorgen</strong><br><small>Back-up, installatie en nazorg.</small></div></div>
-          <div class="hero-row"><div class="hero-icon"><i class="fa-solid fa-gauge-high"></i></div><div><strong>Meer snelheid</strong><br><small>SSD-upgrade en genoeg RAM.</small></div></div>
-          <div class="hero-row"><div class="hero-icon"><i class="fa-solid fa-shield-heart"></i></div><div><strong>Veilig & vertrouwd</strong><br><small>Updates en begrijpelijke uitleg.</small></div></div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Inclusieve belofteband -->
-  <section class="welcome-band">
-    <div class="container">Iedereen welkom – jij bepaalt het tempo: rustige uitleg of snel geregeld. Vaste prijs, geen vakjargon.</div>
-  </section>
-
-  <!-- Diensten -->
-  <section id="diensten">
-    <div class="container">
-      <!-- ONLINE CHECK -->
-      <div class="advice-highlight">
-        <div class="advice-highlight-inner" id="card-online-check">
-          <div class="intro">
-            <div class="intro-icon" aria-hidden="true">🔍</div>
-            <div>
-              <h2>Online Check (gratis)</h2>
-              <p>Direct advies op basis van jouw invoer + onze database.</p>
-            </div>
-          </div>
-
-          <!-- Alleen merk & model verplicht; GET naar advise.php -->
-          <form id="pcslim-check-form" action="advise.php" method="get" class="advice-form" novalidate>
-            <!-- Linkerkolom: toestel -->
-            <div class="group">
-              <div class="group-title">Toestel</div>
-              <div>
-                <label class="lbl" for="brand">Merk</label>
-                <input class="inp" id="brand" name="brand" placeholder="Bijv. Dell" required autocomplete="off" aria-describedby="brandHelp">
-                <small id="brandHelp" class="hint">Tip: staat op de behuizing of in Windows bij <em>Systeeminformatie</em>.</small>
-              </div>
-              <div>
-                <label class="lbl" for="model">Model/Type</label>
-                <input class="inp" id="model" name="model" placeholder="Bijv. Inspiron 5570" required autocomplete="off" aria-describedby="modelHelp">
-                <small id="modelHelp" class="hint">Exact model helpt: vaak op een sticker onderop of bij <em>Over deze pc</em>.</small>
-              </div>
-              <div>
-                <label class="lbl" for="cpu_year">Bouwjaar/CPU</label>
-                <select class="inp" id="cpu_year" name="cpu_year">
-                  <option value="">Kies… (optioneel)</option>
-                  <option value="pre2015">≤ 2014</option>
-                  <option value="2015-2017">2015–2017</option>
-                  <option value="2018-2020">2018–2020</option>
-                  <option value="2021plus">2021+</option>
-                </select>
-              </div>
-            </div>
-
-            <!-- Rechterkolom: prestaties -->
-            <div class="group">
-              <div class="group-title">Prestaties</div>
-              <div class="grid-2">
-                <div>
-                  <label class="lbl" for="ram">RAM (GB)</label>
-                  <select class="inp" id="ram" name="ram">
-                    <option value="">Kies… (optioneel)</option>
-                    <option>2</option><option>4</option><option>6</option><option>8</option>
-                    <option>12</option><option>16</option><option>32</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="lbl" for="storage_type">Opslag</label>
-                  <select class="inp" id="storage_type" name="storage_type">
-                    <option value="">Kies… (optioneel)</option>
-                    <option value="SSD">SSD</option>
-                    <option value="HDD">HDD</option>
-                    <option value="Onbekend">Onbekend</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label class="lbl" for="storage_gb">Opslag (GB)</label>
-                <select class="inp" id="storage_gb" name="storage_gb">
-                  <option value="">Kies… (optioneel)</option>
-                  <option>120</option><option>240</option><option>256</option><option>480</option>
-                  <option>500</option><option>512</option><option>960</option><option>1000</option><option>1024</option>
-                </select>
-              </div>
-                <!-- Gebruik geïntegreerd in prestaties -->
-  <div class="advice-form-usage" role="group" aria-labelledby="gebruikLabel">
-    <label id="gebruikLabel" class="lbl">Gebruik</label>
-    <div class="usage-options">
-      <label class="chip"><input type="radio" name="use" value="basis"> Basis</label>
-      <label class="chip"><input type="radio" name="use" value="standaard"> Standaard</label>
-      <label class="chip"><input type="radio" name="use" value="zwaar"> Zwaar</label>
+    <div class="cards">
+      <article class="card">
+        <div class="icon"><i class="fa-solid fa-rotate"></i></div>
+        <h3>Upgrade-service</h3>
+        <p>Compatibiliteitscheck en installatie. Back-up, uitvoering en nazorg geregeld.</p>
+        <div class="price">vanaf € 59</div>
+      </article>
+      <article class="card">
+        <div class="icon"><i class="fa-brands fa-linux"></i></div>
+        <h3>Linux Oplossingen</h3>
+        <p>Installatie, migratie van bestanden en korte training. Vlot en veilig op oudere pc’s.</p>
+        <div class="price">vanaf € 79</div>
+      </article>
+      <article class="card">
+        <div class="icon"><i class="fa-solid fa-user-shield"></i></div>
+        <h3>Beveiliging & Gemak</h3>
+        <p>Back-ups, updates en wachtwoordbeheer. Rust en zekerheid zonder gedoe.</p>
+        <div class="price">op maat</div>
+      </article>
     </div>
   </div>
-</div><div class="advice-form-submit">
-              <button type="submit" class="btn-primary">Geef mijn advies</button>
-            </div>
-            </div>
+</section>
 
-           
+<section id="tarieven">
+  <div class="container">
+    <div class="section-title">
+      <h2>Transparante Prijzen</h2>
+      <p>Heldere tarieven zonder verborgen kosten.</p>
+    </div>
 
-            <!-- Versturen -->
-            
-          </form>
-
-          <div id="pcslim-check-result" class="advice-result" aria-live="polite"></div>
+    <div class="pricing">
+      <div class="price-card">
+        <div class="price-top"><h3>Windows 11 Upgrade</h3></div>
+        <div class="price-body">
+          <div class="money">€59–€89</div>
+          <ul class="features">
+            <li>Compatibiliteitscheck</li><li>Uitvoeren upgrade</li><li>Data behouden</li><li>Na-controle</li>
+          </ul>
         </div>
+        <div class="price-cta"><a class="btn" style="background:var(--primary);color:#fff" href="#contact">Afspraak maken</a></div>
       </div>
-      <!-- /ONLINE CHECK -->
 
-      <div class="section-title">
-        <h2>Onze Diensten</h2>
-        <p>Complete computerondersteuning voor particulieren en kleine bedrijven.</p>
+      <div class="price-card">
+        <div class="price-top"><h3>Linux Installatie</h3></div>
+        <div class="price-body">
+          <div class="money">€79</div>
+          <ul class="features">
+            <li>Installatie Linux</li><li>Keuze uit distributies</li><li>Bestanden migreren</li><li>Basistraining (1 uur)</li>
+          </ul>
+        </div>
+        <div class="price-cta"><a class="btn" style="background:var(--accent);color:#fff" href="#contact">Afspraak maken</a></div>
       </div>
 
-      <div class="cards">
-        <div class="card">
-          <div class="card-head">
-            <div class="icon"><i class="fa-solid fa-rotate"></i></div>
-            <h3>Upgrade-service</h3>
-          </div>
-          <p>Upgrade naar Windows 11 en hardware-upgrades zoals SSD en RAM. We regelen back-up, installatie en nazorg.</p>
-          <div class="card-footer">
-            <p class="price">vanaf € 59</p>
-            <a class="btn btn-primary" href="#contact">Meer informatie</a>
-          </div>
+      <div class="price-card">
+        <div class="price-top"><h3>PC Slim Support</h3></div>
+        <div class="price-body">
+          <div class="money">€9,95/maand</div>
+          <ul class="features">
+            <li>Onbeperkt advies</li><li>Hulp op afstand</li><li>20 minuten per maand</li><li>Geen voorrijkosten</li>
+          </ul>
         </div>
-        <div class="card">
-          <div class="card-head">
-            <div class="icon"><i class="fa-brands fa-linux"></i></div>
-            <h3>Linux Oplossingen</h3>
-          </div>
-          <p>Installatie van Linux voor oude computers, inclusief migratie van bestanden en korte training.</p>
-          <div class="card-footer">
-            <p class="price">vanaf € 79</p>
-            <a class="btn btn-primary" href="#linux-info">Meer informatie</a>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-head">
-            <div class="icon"><i class="fa-solid fa-user-shield"></i></div>
-            <h3>Beveiliging &amp; Gemak</h3>
-          </div>
-          <p>Back-ups, firewall en wachtwoordbeheer zodat je veilig online bent.</p>
-          <div class="card-footer">
-            <p class="price">op maat</p>
-            <a class="btn btn-primary" href="#contact">Meer informatie</a>
-          </div>
-        </div>
+        <div class="price-cta"><a class="btn" style="background:var(--primary);color:#fff" href="#contact">Abonnement afsluiten</a></div>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <section id="linux-info" class="section section--linux" aria-labelledby="linux-info-title">
-    <div class="container">
-      <header class="section__header">
-        <h2 id="linux-info-title">Linux: veilig, snel en vertrouwd op oudere computers</h2>
-        <p class="section__lead">
-          Linux is een modern en gebruiksvriendelijk besturingssysteem. Ideaal als je pc of laptop geen Windows 11 ondersteunt.
-          Je behoudt internet, e-mail, foto’s en tekstverwerking — zonder dure licenties.
+<section id="faq">
+  <div class="container">
+    <div class="section-title"><h2>Veelgestelde vragen</h2></div>
+    <details id="is-windows-10-nog-wel-veilig">
+      <summary>Is Windows 10 nog wel veilig?</summary>
+      <p>Kort antwoord: ja, <strong>tot oktober 2026</strong> kan Windows 10 nog veilig worden gebruikt via <strong>Extended Security Updates (ESU)</strong>.</p>
+      <p>Microsoft stopt op <strong>14 oktober 2025</strong> met de gewone beveiligingsupdates. Met ESU blijf je nog drie jaar extra beveiligingsupdates ontvangen, zodat je tijd hebt om te upgraden naar <strong>Windows 11</strong> of over te stappen op <strong>Linux</strong>.</p>
+    </details>
+    <details>
+      <summary>Wat als Windows 11 niet kan?</summary>
+      <p>Dan is Linux vaak de beste optie: snel, veilig en vertrouwd. We zetten je bestanden over en geven een korte uitleg.</p>
+    </details>
+  </div>
+</section>
+
+<section id="contact">
+  <div class="container">
+    <div class="section-title">
+      <h2>Neem contact op</h2>
+      <p>Zakelijk en duidelijk. We reageren snel.</p>
+    </div>
+
+    <div class="contact">
+      <div class="info">
+        <h3>Onze gegevens</h3>
+        <p><i class="fa-solid fa-phone"></i> 06-12345678</p>
+        <p><i class="fa-solid fa-envelope"></i> info@pcslim.nl</p>
+        <p><i class="fa-solid fa-location-dot"></i> Regio [Uw Regio]</p>
+        <p><i class="fa-regular fa-clock"></i>
+          Bereikbaarheid: <strong><?= htmlspecialchars($AVAIL_STATUS, ENT_QUOTES, 'UTF-8'); ?></strong><br>
+          <span style="color:#6b778c">Ma–Vr: <?= sprintf('%02d:00–%02d:00', $OPEN_FROM, $OPEN_TILL); ?></span>
         </p>
-      </header>
-
-      <div class="linux-benefits">
-        <div class="benefit">
-          <span class="benefit__icon" aria-hidden="true">🛡️</span>
-          <div class="benefit__body"><strong>Veilig</strong><br>Regelmatige beveiligingsupdates zonder extra kosten.</div>
-        </div>
-        <div class="benefit">
-          <span class="benefit__icon" aria-hidden="true">⚡</span>
-          <div class="benefit__body"><strong>Snel</strong><br>Start en werkt vlotter, zeker op oudere hardware.</div>
-        </div>
-        <div class="benefit">
-          <span class="benefit__icon" aria-hidden="true">💸</span>
-          <div class="benefit__body"><strong>Voordelig</strong><br>Geen licentiekosten, gratis updates.</div>
-        </div>
       </div>
 
-      <h3 class="subheading">Populaire opties</h3>
-      <div class="linux-options">
-        <article class="linux-card">
-          <figure class="linux-card__media">
-            <img src="assets/images/linux/zorin-desktop.jpg" alt="Voorbeeld van Zorin OS desktop" loading="lazy">
-          </figure>
-          <div class="linux-card__body">
-            <h4>Zorin OS</h4>
-            <p>Bekend om de <em>Windows-achtige</em> uitstraling. Zeer geschikt voor overstappers die herkenning willen.</p>
-          </div>
-        </article>
-
-        <article class="linux-card">
-          <figure class="linux-card__media">
-            <img src="assets/images/linux/mint-desktop.png" alt="Voorbeeld van Linux Mint desktop" loading="lazy">
-          </figure>
-          <div class="linux-card__body">
-            <h4>Linux Mint</h4>
-            <p>Stabiel en gebruiksvriendelijk, met een klassieke desktop en veel software direct beschikbaar.</p>
-          </div>
-        </article>
-
-        <article class="linux-card">
-          <figure class="linux-card__media">
-            <img src="assets/images/linux/ubuntu-desktop.png" alt="Voorbeeld van Ubuntu desktop" loading="lazy">
-          </figure>
-          <div class="linux-card__body">
-            <h4>Ubuntu MATE</h4>
-            <p>Licht en snel, ideaal voor oudere pc’s. Simpele bediening met vertrouwde menustructuur.</p>
-          </div>
-        </article>
-      </div>
-
-      <h3 class="subheading">Hoe werkt overstappen?</h3>
-      <ol class="linux-steps">
-        <li><strong>Intake & advies:</strong> we checken jouw pc en wensen (internet, mail, foto’s, documenten).</li>
-        <li><strong>Back-up & installatie:</strong> we maken veilig een back-up en installeren Linux.</li>
-        <li><strong>Migratie & uitleg:</strong> we zetten je bestanden over, richten apps in en geven een korte uitleg.</li>
-      </ol>
-
-      <div class="cta-row">
-        <a class="btn btn--primary" href="advies.html">Krijg persoonlijk advies</a>
-        <a class="btn btn--ghost" href="faq.html#is-windows-10-nog-wel-veilig">Lees: Is Windows 10 nog wel veilig?</a>
-      </div>
-
-      <div class="linux-note">
-        <p><strong>Screenshots ontbreken?</strong> Als bovenstaande afbeeldingen nog niet in de map staan, gebruik tijdelijk de meegeleverde placeholders. Zie instructies in de CSS-notes.</p>
-      </div>
+      <form method="post" action="/contact_verwerk.php" novalidate>
+        <label for="naam">Uw naam</label>
+        <input id="naam" name="name" required placeholder="Naam">
+        <label for="email">Uw e-mailadres</label>
+        <input id="email" name="email" type="email" required placeholder="naam@voorbeeld.nl">
+        <label for="bericht">Uw bericht</label>
+        <textarea id="bericht" name="message" required placeholder="Beschrijf kort uw vraag of probleem…"></textarea>
+        <!-- Honeypot -->
+        <input type="text" name="website" style="display:none" autocomplete="off">
+        <button class="btn" style="background:var(--primary);color:#fff;margin-top:10px" type="submit">Verstuur bericht</button>
+        <p style="color:#6b778c;font-size:.9rem;margin-top:6px">We gebruiken uw gegevens alleen om op uw bericht te reageren.</p>
+      </form>
     </div>
-  </section>
+  </div>
+</section>
 
-
-  <!-- Onze beloftes -->
-  <section id="beloftes" class="usp">
-    <div class="container">
-      <div class="section-title" style="color:#fff;margin-bottom:34px">
-        <h2 style="color:#fff">Onze beloftes</h2>
-        <p>Of je nu veel of weinig van computers weet – wij helpen op een manier die bij jóu past.</p>
+<footer role="contentinfo">
+  <div class="container">
+    <div class="foot">
+      <div>
+        <div class="brand"><div class="logo">PC</div><div class="name">PC <span>Slim</span></div></div>
+        <p style="margin-top:8px">Helder advies en betrouwbare hulp – zonder vakjargon.</p>
       </div>
-      <div class="usp-grid">
-        <div class="usp-box"><i class="fa-solid fa-hand-holding-heart"></i><h3>Rust & Geduld</h3><p>We nemen de tijd en leggen uit in begrijpelijke taal.</p></div>
-        <div class="usp-box"><i class="fa-solid fa-bolt"></i><h3>Snel & Duidelijk</h3><p>Lievere korte uitleg? Ook goed – we regelen het vlot.</p></div>
-        <div class="usp-box"><i class="fa-solid fa-tag"></i><h3>Vaste Prijs</h3><p>Transparant tarief vooraf, dus geen verrassingen.</p></div>
-        <div class="usp-box"><i class="fa-solid fa-shield-heart"></i><h3>Veilig & Vertrouwd</h3><p>Back-up, updates en controle achteraf zijn standaard.</p></div>
-        <div class="usp-box"><i class="fa-solid fa-house-laptop"></i><h3>Aan Huis of Op Afstand</h3><p>Kies wat jou het beste uitkomt.</p></div>
-        <div class="usp-box"><i class="fa-solid fa-person-chalkboard"></i><h3>Jij bepaalt het tempo</h3><p>Van stap-voor-stap tot “fix & klaar”.</p></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Werkwijze -->
-  <section id="werkwijze">
-    <div class="container">
-      <div class="section-title"><h2>Zo werken wij</h2><p>Eenvoudig en zonder gedoe.</p></div>
-      <div class="aud">
-        <div class="item"><i class="fa-solid fa-clipboard-check"></i><h3>1. Korte check</h3><p>We bekijken samen of Windows 11 kan. Zo niet, dan Linux – veilig en snel.</p></div>
-        <div class="item"><i class="fa-solid fa-screwdriver-wrench"></i><h3>2. Uitvoeren</h3><p>Back-up, installatie en optimalisatie. Jij kiest: rustig uitleggen of snel geregeld.</p></div>
-        <div class="item"><i class="fa-solid fa-thumbs-up"></i><h3>3. Uitleg & nazorg</h3><p>Korte of uitgebreide uitleg. Achteraf nog vragen? We staan klaar.</p></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Ervaringen -->
-  <section id="ervaringen" style="padding:60px 0;background:#f7f9fc">
-    <div class="container">
-      <div class="section-title"><h2>Ervaringen van klanten</h2></div>
-      <div class="aud">
-        <div class="item"><i class="fa-solid fa-quote-left"></i>
-          <p>“Fijn dat alles rustig werd uitgelegd. Ik durf weer te internetbankieren.”</p>
-          <p><strong>– Rina (72)</strong></p>
-        </div>
-        <div class="item"><i class="fa-solid fa-quote-left"></i>
-          <p>“Snel geregeld, korte uitleg en klaar. Laptop voelt weer nieuw.”</p>
-          <p><strong>– Omar (29)</strong></p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Tarieven -->
-  <section id="tarieven">
-    <div class="container">
-      <div class="section-title">
-        <h2>Transparante Prijzen</h2>
-        <p>Heldere tarieven zonder verborgen kosten.</p>
-      </div>
-      <div class="pricing">
-        <div class="price-card">
-          <div class="price-top"><h3>Windows 11 Upgrade</h3></div>
-          <div class="price-body">
-            <div class="money">€59–€89</div>
-            <ul class="features">
-              <li>Compatibiliteitscheck</li>
-              <li>Uitvoeren upgrade</li>
-              <li>Data behouden</li>
-              <li>Na-controle</li>
-            </ul>
-          </div>
-          <div class="price-cta"><a class="btn btn-primary" href="#contact">Afspraak maken</a></div>
-        </div>
-
-        <div class="price-card" style="position:relative;transform:translateY(-6px);border:2px solid var(--accent)">
-          <div class="popular">Populair</div>
-          <div class="price-top"><h3>Linux Installatie</h3></div>
-          <div class="price-body">
-            <div class="money">€79</div>
-            <ul class="features">
-              <li>Installatie Linux</li>
-              <li>Keuze uit distributies</li>
-              <li>Bestanden migreren</li>
-              <li>Basistraining (1 uur)</li>
-            </ul>
-          </div>
-          <div class="price-cta"><a class="btn btn-alt" href="#contact">Afspraak maken</a></div>
-        </div>
-
-        <div class="price-card">
-          <div class="price-top"><h3>PC Slim Support</h3></div>
-          <div class="price-body">
-            <div class="money">€9,95/maand</div>
-            <ul class="features">
-              <li>Onbeperkt advies</li>
-              <li>Hulp op afstand</li>
-              <li>20 minuten per maand</li>
-              <li>Geen voorrijkosten</li>
-            </ul>
-          </div>
-          <div class="price-cta"><a class="btn btn-primary" href="#contact">Abonnement afsluiten</a></div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- FAQ -->
-  <section id="faq">
-    <div class="container">
-      <div class="section-title"><h2>Veelgestelde vragen</h2></div>
-      <details>
-        <summary>Is Windows 10 nog wel veilig?</summary>
-        <p>Kort antwoord: ja, <strong>tot oktober 2026</strong> kan Windows 10 nog veilig worden gebruikt via het programma <strong>Extended Security Updates (ESU)</strong>.</p>
-        <p>Microsoft stopt op <strong>14 oktober 2025</strong> met de gewone beveiligingsupdates voor Windows 10. Via ESU ontvang je daarna nog kritieke en belangrijke beveiligingsupdates voor Windows 10 versie 22H2:</p>
-        <ul>
-          <li><strong>Gratis</strong> als je op je pc bent aangemeld met een <strong>Microsoft-account</strong>.</li>
-          <li>Gebruik je liever een lokaal account? Dan is er een <em>kleine eenmalige aankoop</em> beschikbaar om ESU te activeren.</li>
+      <div>
+        <h4>Diensten</h4>
+        <ul style="list-style:none;margin:0;padding:0">
+          <li><a href="#diensten" style="color:#cbd3df;text-decoration:none">Upgrade-service</a></li>
+          <li><a href="#diensten" style="color:#cbd3df;text-decoration:none">Linux Oplossingen</a></li>
+          <li><a href="#diensten" style="color:#cbd3df;text-decoration:none">Beveiliging & Gemak</a></li>
         </ul>
-        <p>Daarmee heb je tijd om te kijken of jouw pc kan worden geüpgraded naar <strong>Windows 11</strong>, of dat <strong>Linux</strong> voor jou een betere keuze is — veilig, betrouwbaar en vaak merkbaar sneller op oudere laptops en pc’s.</p>
-        <p><em>Tip:</em> ga in Windows naar <strong>Instellingen &gt; Windows Update</strong>. Als je apparaat in aanmerking komt, zie je daar een knop om je voor ESU in te schrijven.</p>
-      </details>
-      <details><summary>Ik heb weinig verstand van computers. Kan ik meekijken?</summary><p>Ja. We leggen stap voor stap uit en schrijven desnoods een korte handleiding mee. Jij bepaalt het tempo.</p></details>
-      <details><summary>Wat als Windows 11 niet kan?</summary><p>Dan zetten we je veilig over op Linux. Vaak voelt een oudere pc daarmee weer snel en soepel aan.</p></details>
-      <details><summary>Raak ik gegevens kwijt?</summary><p>Nee. We maken eerst een back-up en controleren de herstelbaarheid voordat we beginnen.</p></details>
-      <details><summary>Kan het ook op afstand?</summary><p>Ja, voor kleine problemen gebruiken we RustDesk (veilig en versleuteld). Zo help ik snel, zonder voorrijkosten.</p></details>
-      <details><summary>Wat kost het precies?</summary><p>Je krijgt vooraf een vaste prijs. Geen verborgen kosten.</p></details>
-    </div>
-  </section>
-
-  <!-- Contact -->
-  <section id="contact">
-    <div class="container">
-      <div class="section-title">
-        <h2>Neem Contact Op</h2>
-        <p>Vragen of een afspraak maken? Stuur ons een bericht – we reageren snel.</p>
       </div>
-      <div class="contact">
-        <div class="info">
-          <h3>Onze gegevens</h3>
-          <p><i class="fa-solid fa-phone"></i> 06-12345678</p>
-          <p><i class="fa-solid fa-envelope"></i> info@pcslim.nl</p>
-          <p><i class="fa-solid fa-location-dot"></i> Regio [Uw Regio]</p>
-          <p><i class="fa-regular fa-clock"></i> Ma-Vr: 9:00 – 18:00</p>
-          <div style="margin-top:14px">
-            <strong>Volg ons</strong><br>
-            <a href="#" aria-label="Facebook" style="margin-right:10px"><i class="fa-brands fa-facebook"></i></a>
-            <a href="#" aria-label="LinkedIn" style="margin-right:10px"><i class="fa-brands fa-linkedin"></i></a>
-            <a href="#" aria-label="Instagram"><i class="fa-brands fa-instagram"></i></a>
-          </div>
-        </div>
-        <form onsubmit="event.preventDefault(); alert('Bedankt! We nemen snel contact met je op.');">
-          <div class="grid-2">
-            <div class="form-row"><label for="naam">Uw naam</label><input id="naam" required placeholder="Naam"></div>
-            <div class="form-row"><label for="email">Uw e-mailadres</label><input id="email" type="email" required placeholder="naam@voorbeeld.nl"></div>
-            <div class="form-row"><label for="tel">Uw telefoonnummer</label><input id="tel" type="tel" placeholder="06-…"></div>
-            <div class="form-row"><label for="dienst">Selecteer een dienst</label>
-              <select id="dienst">
-                <option>Upgrade-service</option><option>Linux Oplossingen</option>
-                <option>Beveiliging & Gemak</option><option>Hulp op Afstand</option><option>Workshops Linux</option>
-              </select>
-            </div>
-          </div>
-          <div class="form-row"><label for="tempo">Hoe wil je geholpen worden?</label>
-            <select id="tempo" required>
-              <option>Rustig & stap-voor-stap (extra uitleg)</option>
-              <option>Snel & duidelijk (korte uitleg)</option>
-              <option>Weet ik nog niet – adviseer mij</option>
-            </select>
-          </div>
-          <div class="form-row"><label for="bericht">Uw bericht</label><textarea id="bericht" placeholder="Beschrijf kort uw vraag of probleem…"></textarea></div>
-          <button class="btn btn-primary" type="submit" aria-label="Verstuur bericht">Verstuur bericht</button>
-        </form>
+      <div>
+        <h4>Links</h4>
+        <ul style="list-style:none;margin:0;padding:0">
+          <li><a href="#tarieven" style="color:#cbd3df;text-decoration:none">Tarieven</a></li>
+          <li><a href="#faq" style="color:#cbd3df;text-decoration:none">FAQ</a></li>
+          <li><a href="#contact" style="color:#cbd3df;text-decoration:none">Contact</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Contact</h4>
+        <ul style="list-style:none;margin:0;padding:0">
+          <li>📞 06-12345678</li>
+          <li>✉️ info@pcslim.nl</li>
+          <li>📍 Regio [Uw Regio]</li>
+        </ul>
       </div>
     </div>
-  </section>
+    <div class="copy">© <span id="year"></span> PC Slim. Alle rechten voorbehouden.</div>
+  </div>
+</footer>
 
-  <!-- Footer -->
-  <footer role="contentinfo">
-    <div class="container">
-      <div class="foot">
-        <div><div class="brand"><div class="logo">PC</div><div class="name">PC <span>Slim</span></div></div>
-          <p style="margin-top:8px">Wij maken technologie toegankelijk, betaalbaar en betrouwbaar — voor iedereen.</p></div>
-        <div><h4>Diensten</h4><ul style="list-style:none;padding:0;margin:0">
-          <li><a href="#diensten">Upgrade-service</a></li><li><a href="#diensten">Linux Oplossingen</a></li>
-          <li><a href="#diensten">Beveiliging & Gemak</a></li><li><a href="#diensten">Hulp op Afstand</a></li>
-          <li><a href="#diensten">Workshops</a></li></ul></div>
-        <div><h4>Links</h4><ul style="list-style:none;padding:0;margin:0">
-          <li><a href="#home">Home</a></li><li><a href="#beloftes">Beloftes</a></li><li><a href="#werkwijze">Werkwijze</a></li>
-          <li><a href="#ervaringen">Ervaringen</a></li><li><a href="#tarieven">Tarieven</a></li><li><a href="#faq">FAQ</a></li><li><a href="#contact">Contact</a></li></ul></div>
-        <div><h4>Contact</h4><ul style="list-style:none;padding:0;margin:0">
-          <li>📞 06-12345678</li><li>✉️ info@pcslim.nl</li><li>📍 Regio [Uw Regio]</li></ul></div>
-      </div>
-      <div class="copy">© <span id="year"></span> PC Slim. Alle rechten voorbehouden.</div>
-    </div>
-  </footer>
-
-  <!-- Kleine helpers -->
-  <script>
-    document.querySelectorAll('header nav a').forEach(a=>{
-      a.addEventListener('click',e=>{
-        const href=a.getAttribute('href'); if(href && href.startsWith('#')){ e.preventDefault(); document.querySelector(href)?.scrollIntoView({behavior:'smooth'}); }
-      });
+<script>
+  // Smooth scroll + huidig jaar
+  document.querySelectorAll('header nav a[href^="#"]').forEach(a=>{
+    a.addEventListener('click',e=>{
+      e.preventDefault();
+      document.querySelector(a.getAttribute('href'))?.scrollIntoView({behavior:'smooth'});
     });
-    document.getElementById('year').textContent=new Date().getFullYear();
-  </script>
-
-  <!-- Autocomplete merk & model -->
-  <script>
-  (function(){
-    const brandInp = document.getElementById('brand');
-    const modelInp = document.getElementById('model');
-    if(!brandInp || !modelInp) return;
-
-    // datalists aanmaken
-    const brandList = document.createElement('datalist'); brandList.id='brandList'; document.body.appendChild(brandList);
-    const modelList = document.createElement('datalist'); modelList.id='modelList'; document.body.appendChild(modelList);
-    brandInp.setAttribute('list','brandList'); brandInp.setAttribute('autocomplete','off');
-    modelInp.setAttribute('list','modelList'); modelInp.setAttribute('autocomplete','off');
-
-    // laad merken
-    async function loadBrands(){
-      try{
-        const r = await fetch('api/brands.php', {cache:'no-store'});
-        const brands = await r.json();
-        brandList.innerHTML = (brands||[]).map(b=>`<option value="${b}"></option>`).join('');
-      }catch(e){ console.warn('brands.php fail', e); }
-    }
-    // laad modellen bij merk + (optioneel) query
-    let to=null;
-    async function loadModels(){
-      clearTimeout(to);
-      to = setTimeout(async ()=>{
-        const brand = brandInp.value.trim();
-        if(!brand){ modelList.innerHTML=''; return; }
-        const q = modelInp.value.trim();
-        const url = new URL('api/models_by_brand.php', window.location.href);
-        url.searchParams.set('brand', brand);
-        if(q) url.searchParams.set('q', q);
-        try{
-          const r = await fetch(url, {cache:'no-store'});
-          const models = await r.json();
-          modelList.innerHTML = (models||[]).map(m=>`<option value="${m}"></option>`).join('');
-        }catch(e){ console.warn('models_by_brand fail', e); }
-      }, 200);
-    }
-
-    // start
-    if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', loadBrands);
-    else loadBrands();
-
-    // gedrag bij wisselen van merk/model
-    brandInp.addEventListener('change', ()=>{
-      modelInp.value=''; modelInp.placeholder=''; loadModels();
-    });
-    modelInp.addEventListener('input', loadModels);
-  })();
-  </script>
-
-  <!-- Online check submit + chat assist -->
-  <script>
-  (function(){
-  const form   = document.getElementById('pcslim-check-form');
-  const result = document.getElementById('pcslim-check-result');
-  if(!form || !result) return;
-
-  function buildAdviceCard(data){
-    const spec = data.specs || {};
-    // Filter NVMe/M.2 uit tips (dubbele zekerheid – backend filtert ook)
-    const tips  = (data.upgrade_hints || []).filter(h => !/(nvme|m\.?2)/i.test(String(h)));
-    const hints = tips.map(h=>`<li>${h}</li>`).join('');
-
-    // RAM-label zonder “-/–”; val terug op 'onbekend'
-    const ramInstalled = (spec.ram_installed_gb ?? spec.ram_installed ?? null);
-    const ramMax       = (spec.ram_max_gb       ?? spec.ram_max       ?? null);
-    const ramType      = spec.ram_type ? ` (${spec.ram_type})` : '';
-    const ramLabel     = (ramInstalled !== null) ? `${ramInstalled} GB${ramType}` : `onbekend${ramType}`;
-    const ramMaxLabel  = (ramMax !== null)       ? `${ramMax} GB`               : `onbekend`;
-
-    // Storage: toon interface/type in hoofdletters, zonder NVMe-promotie
-    const storageLabel = (spec.storage_interface || spec.storage_iface || spec.storage_type || 'onbekend')
-      .toString().toUpperCase();
-
-    const badge = (v)=> v===1 ? '✅ Ja' : (v===0 ? '❌ Nee' : '❔ Onbekend');
-    const sourceKey = data.match && data.match.source && data.match.source !== 'models'
-      ? data.match.source
-      : null;
-    const sourceMap = { models_ai_stage: 'bron: AI-verrijking (voorlopig)' };
-    const sourceNote = sourceKey ? `<div style="color:#99a6bd;font-size:0.8rem;margin-top:2px;">${sourceMap[sourceKey] || `bron: ${sourceKey}`}</div>` : '';
-
-    return `
-      <div class="pcslim-advice-card" style="background:#fff;border:1px solid #e7edf4;padding:16px;border-radius:14px;box-shadow:0 4px 14px rgba(0,0,0,.06)">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-          <div style="background:#eaf2fb;color:#1f4b7a;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;">💡</div>
-          <div>
-            <div style="font-weight:800;">${data.match.brand} – ${data.match.display_model}</div>
-            <small style="color:#66768a">Windows 11: <strong>${badge(data.supports_w11)}</strong></small>
-            ${sourceNote}
-          </div>
-        </div>
-
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:10px 0;">
-          <div><small style="color:#6b778c">CPU</small><br><strong>${spec.cpu_brand||''} ${spec.cpu_model||''}</strong>${spec.cpu_gen?` (gen ${spec.cpu_gen})`:''}</div>
-          <div><small style="color:#6b778c">RAM</small><br><strong>${ramLabel}</strong> <span style="opacity:.7">(max ${ramMaxLabel})</span></div>
-          <div><small style="color:#6b778c">Opslag</small><br><strong>${storageLabel}</strong></div>
-        </div>
-
-        <div style="margin-top:8px">
-          <div style="font-weight:700;color:#1f3552;margin-bottom:6px">Advies</div>
-          <div style="background:#f7fbff;border:1px solid #e3eefb;padding:10px;border-radius:10px">${data.advice}</div>
-        </div>
-
-        ${hints ? `<div style="margin-top:10px">
-          <div style="font-weight:700;color:#1f3552;margin-bottom:6px">Upgrade-tips</div>
-          <ul style="margin:0 0 0 16px;padding:0;">${hints}</ul>
-        </div>` : '' }
-      </div>`;
-  }
-
-  const chatAssist = (function(){
-    let state = null;
-    let els = null;
-    let styleInjected = false;
-
-    function injectStyle(){
-      if(styleInjected) return;
-      styleInjected = true;
-      const css = document.createElement('style');
-      css.textContent = `
-        .pcslim-chat{background:#fff;border:1px solid #e7edf4;border-radius:14px;box-shadow:0 6px 20px rgba(0,0,0,.08);display:flex;flex-direction:column;gap:12px;padding:16px;min-height:280px}
-        .pcslim-chat-header{display:flex;flex-direction:column;gap:6px}
-        .pcslim-chat-header strong{font-size:1rem;color:#1f3552}
-        .pcslim-chat-header p{margin:0;color:#53627c;font-size:.92rem}
-        .pcslim-chat-suggestions{margin:6px 0 0;padding:0;list-style:none;color:#3a4b63;font-size:.9rem}
-        .pcslim-chat-suggestions li{margin:0 0 4px}
-        .pcslim-chat-body{flex:1 1 auto;overflow-y:auto;padding:10px;border:1px solid #edf2f8;border-radius:12px;background:#f7fbff}
-        .pcslim-chat-msg{max-width:85%;margin-bottom:10px;padding:10px 12px;border-radius:12px;line-height:1.5;font-size:.95rem;white-space:pre-wrap}
-        .pcslim-chat-msg.is-assistant{background:#fff;border:1px solid #d8e2f1;color:#1f3552}
-        .pcslim-chat-msg.is-user{background:#245c8e;color:#fff;margin-left:auto}
-        .pcslim-chat-msg.is-system{background:#fff5e0;color:#8a5700;border:1px solid #f7d48a;margin-left:auto;margin-right:auto}
-        .pcslim-chat-footer{display:flex;align-items:flex-end;gap:8px}
-        .pcslim-chat-footer textarea{flex:1 1 auto;min-height:52px;max-height:160px;border:1px solid #d2dbe8;border-radius:10px;padding:10px;font-family:inherit;font-size:.95rem;resize:vertical}
-        .pcslim-chat-footer button{background:#245c8e;color:#fff;border:none;border-radius:10px;padding:12px 18px;font-weight:600;cursor:pointer}
-        .pcslim-chat-footer button[disabled]{opacity:.6;cursor:not-allowed}
-        .pcslim-chat-status{font-size:.85rem;color:#6b7a94;margin-top:-6px}
-        .pcslim-chat-meta{font-size:.85rem;color:#6b7a94}
-        .pcslim-chat-meta button{margin-top:6px;background:#f39c12;color:#fff;border:none;border-radius:8px;padding:8px 12px;font-weight:600;cursor:pointer}
-        .pcslim-chat-meta button:hover{filter:brightness(.95)}
-        .pcslim-chat-advice{margin-top:12px}
-      `;
-      document.head.appendChild(css);
-    }
-
-    function escapeHtml(str){
-      return str.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    }
-
-    function renderMessages(){
-      if(!els) return;
-      const body = els.body;
-      body.innerHTML = '';
-      if(!state || !state.messages.length){
-        body.innerHTML = '<div class="pcslim-chat-msg is-system">Stel gerust je vraag over het merk of model. Ik denk met je mee.</div>';
-        return;
-      }
-      state.messages.forEach(msg=>{
-        if(msg.display === false) return;
-        const div = document.createElement('div');
-        div.className = `pcslim-chat-msg is-${msg.role}`;
-        const safe = escapeHtml(msg.content).replace(/\n\n+/g,'\n\n').replace(/\n/g,'<br>');
-        div.innerHTML = safe;
-        body.appendChild(div);
-      });
-      body.scrollTop = body.scrollHeight;
-    }
-
-    function setSending(isSending){
-      if(!els) return;
-      els.sendBtn.disabled = isSending;
-      els.textarea.disabled = isSending;
-      if(isSending){
-        els.status.textContent = 'AI is een antwoord aan het formuleren…';
-      }
-    }
-
-    function appendAdviceCard(advice){
-      if(!els || !advice) return;
-      const existing = els.wrapper.querySelector('.pcslim-chat-advice');
-      if(existing) existing.remove();
-      const tmp = document.createElement('div');
-      tmp.innerHTML = buildAdviceCard(advice);
-      const card = tmp.firstElementChild;
-      if(card){
-        card.classList.add('pcslim-chat-advice');
-        if(!card.style.marginTop){
-          card.style.marginTop = '12px';
-        }
-        els.wrapper.appendChild(card);
-      }
-      state.latestAdvice = advice;
-    }
-
-    async function askAssistant(message, {displayUser = true} = {}){
-      if(!state) return;
-      const trimmed = (message||'').trim();
-      if(!trimmed) return;
-
-      if(displayUser){
-        state.messages.push({role:'user', content: trimmed});
-        renderMessages();
-      }else{
-        state.messages.push({role:'user', content: trimmed, display:false});
-      }
-
-      els.status.textContent = '';
-      setSending(true);
-
-      try{
-        const payload = {
-          messages: state.messages.map(m=>({role:m.role, content:m.content})),
-          brand: state.brand,
-          model: state.model,
-          reason: state.reason,
-          last_error: state.lastError
-        };
-        const r = await fetch('api/chat_assist.php', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify(payload)
-        });
-        const data = await r.json();
-        if(!r.ok || !data.ok){
-          throw new Error(data.error || 'AI kon geen antwoord geven.');
-        }
-        const assistantReply = data.reply || 'Ik weet het niet zeker, maar ik help je graag verder.';
-        state.messages.push({role:'assistant', content: assistantReply});
-        state.lastContext = data.context || null;
-        if(data.warning){
-          state.messages.push({role:'assistant', content:'(Let op: AI-service gaf een waarschuwing; het antwoord kan incompleet zijn.)', display:false});
-        }
-        renderMessages();
-        if(data.resolved_advice && data.resolved_advice.found){
-          appendAdviceCard(data.resolved_advice);
-          if(data.resolved_advice.match){
-            if(data.resolved_advice.match.brand) state.brand = data.resolved_advice.match.brand;
-            if(data.resolved_advice.match.display_model) state.model = data.resolved_advice.match.display_model;
-          }
-          els.status.textContent = '✅ Advies gevonden op basis van jouw input.';
-        }else if(data.resolution_meta && data.resolution_meta.attempted){
-          if(data.resolution_meta.found){
-            els.status.textContent = '✅ Advies gevonden.';
-          }else{
-            els.status.textContent = 'Nog geen exacte match; ik zoek graag verder met je mee.';
-          }
-        }
-        if (data.seed_result) {
-          const seed = data.seed_result;
-          const label = seed.model ? `${seed.brand || state.brand} ${seed.model}`.trim() : (seed.brand || state.brand || 'het model');
-          const seedMsg = seed.ok
-            ? `Ik heb ${label} vastgelegd zodat we dit model voortaan herkennen.`
-            : `Toevoegen aan de database is niet gelukt: ${seed.error || 'onbekende fout.'}`;
-          state.messages.push({role:'assistant', content: seedMsg});
-          renderMessages();
-          if(seed.ok){
-            if(seed.brand) state.brand = seed.brand;
-            if(seed.model) state.model = seed.model;
-            if(seed.advice && seed.advice.found && !(data.resolved_advice && data.resolved_advice.found)){
-              appendAdviceCard(seed.advice);
-              els.status.textContent = '✅ Model toegevoegd en advies beschikbaar.';
-            } else if(!els.status.textContent){
-              els.status.textContent = 'Model toegevoegd; zodra we alle gegevens hebben volgt het advies automatisch.';
-            }
-          }
-        }
-      }catch(err){
-        state.messages.push({role:'assistant', content: `Er ging iets mis bij het ophalen van hulp: ${err.message || err}`, display:true});
-        renderMessages();
-        els.status.textContent = 'Er trad een fout op bij het ophalen van hulp.';
-      }finally{
-        setSending(false);
-        if(els.status.textContent === 'AI is een antwoord aan het formuleren…'){
-          els.status.textContent = '';
-        }
-      }
-    }
-
-    function renderSeedForm(){
-      if(!state || !state.ask) return;
-      const q = state.ask.questions;
-      const seed = document.createElement('div');
-      seed.innerHTML = `
-        <div style="background:#fff7e6;border:1px solid #ffd9a8;padding:14px;border-radius:12px;margin-top:12px">
-          <strong>Model toevoegen?</strong><br>
-          Met deze gegevens kunnen we het model in de lijst opnemen.
-          <form id="pcslim-seed-form" style="display:grid;gap:10px;margin-top:10px">
-            ${q.map(field => {
-              if (field.type === 'select') {
-                return `<label>${field.label}<br>
-                  <select name="${field.name}">
-                    ${(field.options||[]).map(o=>`<option value="${o}">${o}</option>`).join('')}
-                  </select></label>`;
-              }
-              const extra = [];
-              if(field.required) extra.push('required');
-              if(field.min !== undefined) extra.push(`min="${field.min}"`);
-              if(field.max !== undefined) extra.push(`max="${field.max}"`);
-              return `<label>${field.label}<br>
-                <input name="${field.name}" type="${field.type||'text'}" ${extra.join(' ')}></label>`;
-            }).join('')}
-            <button type="submit" style="margin-top:8px;background:#245c8e;color:#fff;border:none;border-radius:8px;padding:10px 14px;font-weight:600;cursor:pointer">Verstuur modelinfo</button>
-          </form>
-        </div>`;
-      els.wrapper.appendChild(seed);
-      const seedForm = seed.querySelector('#pcslim-seed-form');
-      seedForm.addEventListener('submit', async (ev)=>{
-        ev.preventDefault();
-        const fd = new FormData(seedForm);
-        const payload = Object.fromEntries(fd.entries());
-        payload.brand = state.brand;
-        try{
-          const r = await fetch('api/submit_seed.php', {
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body: JSON.stringify(payload)
-          });
-          const res = await r.json();
-          if(res.ok){
-            seedForm.outerHTML = `<div><b>Dank je!</b> Het model staat nu in de wachtrij.<br>We sturen het advies zodra het verwerkt is.</div>`;
-          }else{
-            seedForm.insertAdjacentHTML('beforeend', `<div style="color:#b00020">Fout: ${res.error||'onbekend'}</div>`);
-          }
-        }catch(error){
-          seedForm.insertAdjacentHTML('beforeend', `<div style="color:#b00020">Fout bij versturen: ${error.message||error}</div>`);
-        }
-      }, {once:true});
-    }
-
-    function start(context){
-      injectStyle();
-      state = {
-        brand: context.brand || '',
-        model: context.model || '',
-        reason: context.reason || '',
-        lastError: context.message || '',
-        ask: context.ask || null,
-        suggestions: context.suggestions || [],
-        messages: [],
-        lastContext: null,
-        latestAdvice: null
-      };
-
-      result.innerHTML = `
-        <div class="pcslim-chat">
-          <div class="pcslim-chat-header">
-            <strong>Geen directe match gevonden</strong>
-            <p>Ik kijk met je mee naar ${state.brand ? `merk <b>${state.brand}</b>` : 'het opgegeven merk'} en model "${state.model || '(onbekend)'}". Stel je vraag of omschrijf het model in je eigen woorden.</p>
-            ${state.suggestions && state.suggestions.length ? `
-              <ul class="pcslim-chat-suggestions">
-                ${state.suggestions.map(item=>{
-                  const parts = [];
-                  if(item.brand) parts.push(item.brand);
-                  if(item.display_model) parts.push(item.display_model);
-                  const label = parts.join(' ');
-                  const w11 = item.supports_w11 === null ? 'Windows 11: onbekend' : (parseInt(item.supports_w11,10) === 1 ? 'Windows 11: ✅' : 'Windows 11: ❌');
-                  return `<li>Suggestie: <em>${label || '(geen naam)'}</em> – ${w11}</li>`;
-                }).join('')}
-              </ul>` : ''}
-          </div>
-          <div class="pcslim-chat-body" id="pcslim-chat-body"></div>
-          <div class="pcslim-chat-status" id="pcslim-chat-status"></div>
-          <form class="pcslim-chat-footer" id="pcslim-chat-form">
-            <textarea id="pcslim-chat-input" placeholder="Vertel wat je zoekt, bijvoorbeeld bouwjaar of kenmerken..." required></textarea>
-            <button type="submit">Verstuur</button>
-          </form>
-          ${state.ask ? `
-            <div class="pcslim-chat-meta">
-              Toch het model laten toevoegen?&nbsp;
-              <button type="button" id="pcslim-chat-seed">Modelgegevens doorgeven</button>
-            </div>` : ''}
-        </div>`;
-
-      els = {
-        wrapper: result.querySelector('.pcslim-chat'),
-        body: result.querySelector('#pcslim-chat-body'),
-        form: result.querySelector('#pcslim-chat-form'),
-        textarea: result.querySelector('#pcslim-chat-input'),
-        sendBtn: result.querySelector('.pcslim-chat-footer button'),
-        status: result.querySelector('#pcslim-chat-status')
-      };
-
-      renderMessages();
-
-      els.form.addEventListener('submit', async (ev)=>{
-        ev.preventDefault();
-        const txt = els.textarea.value;
-        els.textarea.value = '';
-        await askAssistant(txt, {displayUser:true});
-        els.textarea.focus();
-      });
-
-      els.textarea.addEventListener('keydown', (ev)=>{
-        if(ev.key === 'Enter' && !ev.shiftKey){
-          ev.preventDefault();
-          els.form.requestSubmit();
-        }
-      });
-
-      if(state.ask){
-        const seedBtn = result.querySelector('#pcslim-chat-seed');
-        seedBtn.addEventListener('click', ()=>{
-          seedBtn.disabled = true;
-          seedBtn.textContent = 'Formulier openen…';
-          renderSeedForm();
-        }, {once:true});
-      }
-
-      // startgesprek
-      const autoMessage = `De bezoeker wil weten of Windows 11 mogelijk is. In het formulier staat merk "${state.brand}" en model "${state.model}", maar er is geen match (reden: ${state.reason||'onbekend'}). Gebruik eerst de context en probeer het exacte modelnummer/productcode te achterhalen (verwijs naar stickers, BIOS, Windows systeeminfo). Vraag pas daarna eventueel naar hardwaregegevens en doe maximaal één concrete vraag per beurt. Geen vragen over wensen of gebruik. Zodra je genoeg weet moet je een [[ADVISE ...]]-directive sturen.`;
-      askAssistant(autoMessage, {displayUser:false});
-    }
-
-    return { start };
-  })();
-
-  function renderAdvice(data){
-    result.innerHTML = buildAdviceCard(data);
-  }
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    result.style.display = 'block';
-    result.innerHTML = '⏳ Bezig met checken…';
-
-    const fd = new FormData(form);
-    const params = new URLSearchParams(fd);
-    const url = new URL('advise.php', window.location.href);
-    url.search = params.toString();
-
-    try{
-      const r = await fetch(url, {headers:{'Accept':'application/json'}});
-      let data = null;
-      try{
-        data = await r.json();
-      }catch(parseErr){
-        throw new Error('Kon het antwoord niet lezen (ongeldige JSON).');
-      }
-
-      if (!data) { throw new Error(`Serverfout (${r.status})`); }
-      if (!r.ok && (!Object.prototype.hasOwnProperty.call(data, 'found') || data.error)) {
-        throw new Error(data.error || `Serverfout (${r.status})`);
-      }
-      if (!data.found) {
-        const ctx = {
-          brand: fd.get('brand') || '',
-          model: fd.get('model') || '',
-          reason: data.reason || 'onbekend',
-          message: data.message || '',
-          suggestions: data.suggestions || [],
-          ask: data.ask || null
-        };
-        chatAssist.start(ctx);
-        return;
-      }
-
-      renderAdvice(data);
-    }catch(err){
-      result.innerHTML = `
-        <div style="background:#fdecea;border:1px solid #f5c2c7;padding:12px;border-radius:10px">
-          <strong>Fout:</strong> ${err.message || err}
-        </div>`;
-    }
   });
-})();
+  document.getElementById('year').textContent=new Date().getFullYear();
 </script>
-
-  <script>
-  (function() {
-    try {
-      var KEY = 'pcslim_esu_closed_v1';
-      var el = document.getElementById('esu-banner');
-      if (!el) return;
-      if (localStorage.getItem(KEY) === '1') return;
-      el.hidden = false;
-      var btn = el.querySelector('.esu-banner__close');
-      if (btn) {
-        btn.addEventListener('click', function () {
-          el.hidden = true;
-          try { localStorage.setItem(KEY, '1'); } catch(e){}
-        });
-      }
-    } catch (e) { }
-  })();
-  </script>
- <script>
-    (function(){
-      var anchor = document.querySelector('a[href="#linux-info"]');
-      if (!anchor) return;
-      anchor.addEventListener('click', function(e){
-        var target = document.getElementById('linux-info');
-        if (!target) return;
-        try {
-          e.preventDefault();
-          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          history.pushState(null, '', '#linux-info');
-        } catch(_) {}
-      });
-    })();
-  </script>
 </body>
 </html>
