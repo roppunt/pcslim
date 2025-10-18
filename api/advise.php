@@ -1,221 +1,204 @@
 <?php
-// /api/advise.php — diagnostische API met W11/LINUX-logica in Jip-en-Janneke-taal
-error_reporting(E_ALL);
-ini_set('display_errors', 0); // fouten gaan als JSON terug
+declare(strict_types=1);
 header('Content-Type: application/json; charset=utf-8');
 
-function out($arr){
-  echo json_encode($arr, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
-  exit;
+require_once __DIR__ . '/conn.php';
+require_once __DIR__ . '/../lib/Advice.php';
+
+function json_out(array $payload, int $status = 200): void {
+    http_response_code($status);
+    echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
 }
 
-/**
- * Kern: bouw advies obv DB-rij uit `models` en prijzen uit `prices`.
- * - Windows 10 komt hier NIET in voor.
- * - Eerst bepalen: kan dit systeem naar W11 (evt. met upgrades)? Zo niet → Linux.
- */
-function build_advice($m, $prices){
-    // ---------- helpers ----------
-    $get = fn($k,$d=null)=> (isset($m[$k]) && $m[$k] !== '') ? $m[$k] : $d;
-    $has = fn($v,$s)=> stripos((string)$v, $s) !== false;
-    $pick = function($keys) use ($prices){
-        foreach ($keys as $k) {
-            if (isset($prices[$k]) && (int)$prices[$k] > 0) return (int)$prices[$k];
-        }
-        return 0;
-    };
-    $eur = fn($c)=> '€ '.number_format($c/100, 0, ',', '.');
+function pdo_boot(): PDO {
+    if (isset($GLOBALS['pdo']) && $GLOBALS['pdo'] instanceof PDO) return $GLOBALS['pdo'];
+    if (function_exists('pdo')) return pdo();
 
-    // ---------- feitelijke DB-velden ----------
-    $brand    = (string)$get('brand','');
-    $model    = (string)$get('display_model','');
-    $arch     = (string)$get('cpu_arch','');            // 'x86-32' of 'x86-64'
-    $maxram   = (int)$get('max_ram_gb',0);
-    $storage  = (string)$get('storage','');             // 'IDE/PATA', 'SATA', 'NVMe', ...
-    $w11flag  = $get('supports_w11',null);              // 1/0/NULL
-    // onderstaande zijn optioneel; als ze niet bestaan in DB blijven ze 0
-    $cpu_gen  = (int)$get('cpu_gen',0);
-    $uefi     = (int)$get('uefi_boot',0);
-    $tpm2     = (int)$get('tpm_2',0);
-    $tpm_up   = (int)$get('tpm_upgradeable',0);
+    $host = getenv('DB_HOST') ?: '127.0.0.1';
+    $name = getenv('DB_NAME') ?: 'pcslim';
+    $user = getenv('DB_USER') ?: 'root';
+    $pass = getenv('DB_PASS') ?: '';
+    $dsn  = "mysql:host=$host;dbname=$name;charset=utf8mb4";
+    return new PDO($dsn, $user, $pass, [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+    ]);
+}
 
-    // ---------- badges (in gewone taal) ----------
-    $badges = [];
-    if ($maxram) {
-        $badges[] = "Geheugen: maximaal {$maxram} GB";
-    }
-    if ($storage!=='') {
-        if (stripos($storage,'IDE')!==false || stripos($storage,'PATA')!==false) {
-            $badges[] = "Harde schijf: oud type (IDE)";
-        } elseif (stripos($storage,'NVMe')!==false) {
-            $badges[] = "Harde schijf: NVMe SSD (zeer snel)";
-        } elseif (stripos($storage,'SATA')!==false) {
-            $badges[] = "Harde schijf: SATA (moderner)";
-        } else {
-            $badges[] = "Harde schijf: {$storage}";
-        }
-    }
-    if ($arch!=='') {
-        if (stripos($arch,'32')!==false) {
-            $badges[] = "Processor: 32-bit (oudere generatie)";
-        } else {
-            $badges[] = "Processor: 64-bit (geschikt voor nieuwere systemen)";
-        }
-    }
-    if ($cpu_gen)         $badges[] = "CPU-generatie: {$cpu_gen}";
-    if ($uefi)            $badges[] = "Moderne opstartmethode aanwezig (UEFI)";
-    if ($tpm2 || $tpm_up) $badges[] = $tpm2 ? "Beveiligingschip aanwezig (TPM 2.0)" : "TPM kan worden toegevoegd";
-
-    // ---------- derived flags ----------
-    $cpu32  = $has($arch,'32');
-    $isIDE  = $has($storage,'IDE') || $has($storage,'PATA');
-    $isSATA = $has($storage,'SATA');
-    $isNVMe = $has($storage,'NVMe');
-
-    // ---------- prijzen (flexibele keys) ----------
-    $p_ssd_500 = $pick(['ssd_500gb','ssd_upgrade','ssd500']);
-    $p_ram_8   = $pick(['ram_8gb','ram8','ram_upgrade_8']);
-    $p_linux   = $pick(['linux_install','install_linux']);
-    $p_w11     = $pick(['win11_upgrade','windows11_upgrade','w11_upgrade']);
-    $p_tpm     = $pick(['tpm_module','tpm2_module']);
-
-    $notes = [];
-    $os    = ['win11'=>'','linux'=>'']; // Windows 10 bestaat hier niet
-
-    // ---------- knock-outs voor Windows 11 (J&J-taal) ----------
-    $hard_no_w11 = false;
-    if ($cpu32) { $notes[]='De processor is een oud 32-bit model. Windows 11 werkt hier niet op.'; $hard_no_w11 = true; }
-    if ($isIDE) { $notes[]='De harde schijf gebruikt een oud type aansluiting (IDE/PATA). Te oud voor Windows 11.'; $hard_no_w11 = true; }
-    if ($maxram>0 && $maxram<8) { $notes[]='Het RAM geheugen kan niet vermeerderd worden naar 8 GB. Dat is het minimale wat nodig is voor Windows 11.'; $hard_no_w11 = true; }
-    if ($w11flag===0) { $notes[]='Volgens onze gegevens is dit model niet geschikt voor Windows 11.'; $hard_no_w11 = true; }
-
-    // ---------- basisvoorwaarden voor Windows 11 ----------
-    // Onbekende velden blokkeren niet (cpu_gen/uefi/tpm kunnen 0/NULL zijn)
-    $meets_gen = ($cpu_gen>=8) || ($w11flag===1) || ($cpu_gen===0 && $w11flag===null);
-    $meets_fw = ($w11flag===1)                      // DB zegt expliciet: W11 ok
-         || (($uefi===0 && $tpm2===0 && $tpm_up===0)   // firmware onbekend → niet blokkeren
-             ? true
-             : ($uefi===1 && ($tpm2===1 || $tpm_up===1)));
-
-    $storage_ok= $isSATA || $isNVMe || ($storage==='');
-
-    // ---------- beslisboom ----------
-    $headline=''; $intro=''; $costs=[];
-
-    if (!$hard_no_w11 && $meets_gen && $storage_ok && $meets_fw) {
-        // ===== Pad A — Windows 11 is mogelijk (evt. met upgrades) =====
-        $headline = 'Windows 11 is mogelijk';
-        $intro    = 'Met de juiste upgrade(s) kan dit systeem veilig door op Windows 11.';
-        $os['win11'] = 'Aan te raden als u bij Windows wilt blijven.';
-        $os['linux'] = 'Alternatief: Linux (stabiel en licht).';
-
-        // toon alleen relevante upgrades
-        if ($p_ssd_500 && !$isNVMe)     $costs[] = "SSD 500GB v.a. ".$eur($p_ssd_500);
-        if ($p_ram_8 && $maxram<8)      $costs[] = "RAM-upgrade naar 8 GB v.a. ".$eur($p_ram_8);
-        if ($p_tpm && !$tpm2 && $tpm_up)$costs[] = "TPM-module v.a. ".$eur($p_tpm);
-        if ($p_w11)                      $costs[] = "Windows 11 installatie/upgr. v.a. ".$eur($p_w11);
-
-        // Tips in gewone taal
-        if ($isSATA) $notes[]='Er zit een moderne SATA-aansluiting in. Met een SSD harde schijf wordt de laptop voelbaar sneller.';
-        if ($isNVMe) $notes[]='Ondersteunt NVMe: dat is zeer snelle opslag voor de beste prestaties.';
-
-    } else {
-        // ===== Pad B — Windows 11 niet haalbaar → Linux =====
-        $headline = 'Beter naar Linux';
-        $intro    = 'Windows 11 is hier niet haalbaar. Linux is veilig en snel voor dagelijks gebruik.';
-        // Begrijpelijke formulering (geen "distro")
-        $os['linux'] = $cpu32
-            ? 'Gebruik een lichte Linux-versie die 32-bit ondersteunt, zoals antiX of MX (32-bit).'
-            : 'Aanbevolen: Zorin OS (Lite) of een lichte Ubuntu-variant.';
-
-        // upgrades zinvol voor Linux: alleen tonen als het géén oud IDE/PATA-systeem is
-        if (!$isIDE && $p_ssd_500) $costs[] = "SSD 500GB v.a. ".$eur($p_ssd_500);
-        if ($p_linux)              $costs[] = "Linux-installatie v.a. ".$eur($p_linux);
-
-        // GEEN IDE→SATA-advies meer toevoegen (bewust weggelaten)
-        if ($isSATA) $notes[]='Deze laptop heeft een SATA-aansluiting. Met een SSD wordt Linux merkbaar sneller.';
-        if ($isNVMe) $notes[]='Ondersteunt NVMe (zeer snelle opslag). Linux werkt hierop uitstekend.';
+/** Proxy naar chat_assist.php bij geen match */
+function proxy_chat_assist(string $brand, string $model): array {
+    $url = getenv('CHAT_ASSIST_URL');
+    if (!$url) {
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $host   = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        $base   = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? '/api/advise.php'), '/');
+        $url    = $scheme . '://' . $host . $base . '/chat_assist.php';
     }
 
-    if (!empty($m['notes'])) $notes[] = trim((string)$m['notes']);
-
-    return [
-        'headline'     => $headline,
-        'intro'        => $intro,
-        'badges'       => array_values(array_unique($badges)),
-        'os'           => $os,                            // alleen win11 + linux
-        'what_we_see'  => array_values(array_unique($notes)),
-        'costs'        => $costs
+    $payload = [
+        'message' => trim($brand . ' ' . $model),
+        'intent'  => 'spec_lookup_and_advice'
     ];
+
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_POST           => true,
+        CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+        CURLOPT_POSTFIELDS     => json_encode($payload, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 20,
+    ]);
+    $res  = curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $err  = $res === false ? curl_error($ch) : null;
+    curl_close($ch);
+
+    if ($res === false || $code < 200 || $code >= 300) {
+        return [
+            'found'  => false,
+            'error'  => 'Fallback via chat_assist mislukt',
+            'detail' => $err ?: ('HTTP '.$code),
+        ];
+    }
+
+    $json = json_decode($res, true);
+    if (!is_array($json)) {
+        return ['found'=>false,'error'=>'Ongeldig antwoord van chat_assist'];
+    }
+
+    $json['proxied_from_chat_assist'] = true;
+    return $json;
 }
 
 try {
-  // 0) Ping
-  if (isset($_GET['ping'])) out(['ok'=>true,'where'=>'/api/advise.php']);
-
-  // 1) DB-verbinding
-  require __DIR__.'/conn.php'; // moet $pdo aanmaken; geen output!
-
-  // 2) Parameters
-  $brand = isset($_GET['brand']) ? trim($_GET['brand']) : null;
-  $model = isset($_GET['model']) ? trim($_GET['model']) : null;
-  $q     = isset($_GET['q'])     ? trim($_GET['q'])     : null;
-
-  if ((!$brand || !$model) && !$q) {
-    out(['ok'=>false,'error'=>'Parameters ontbreken (brand+model of q).']);
-  }
-
-  // 3) Prijzen ophalen
-  $prices = [];
-  try {
-    $st = $pdo->query("SELECT pkey, value_cents FROM prices");
-    foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $p) {
-      $prices[$p['pkey']] = (int)$p['value_cents'];
+    $brand = isset($_GET['brand']) ? trim((string)$_GET['brand']) : '';
+    $model = isset($_GET['model']) ? trim((string)$_GET['model']) : '';
+    if ($brand === '' || $model === '') {
+        json_out(['found'=>false,'error'=>'Ontbrekende parameters (?brand=&model=)'], 400);
     }
-  } catch(Throwable $e) {
-    $prices = []; // prijzen optioneel
-  }
 
-  // 4) Model zoeken
-  $row = null;
-  if ($brand && $model) {
-    // exacte match
-    $st = $pdo->prepare("SELECT * FROM models WHERE active=1 AND brand=? AND display_model=? LIMIT 1");
-    $st->execute([$brand, $model]);
-    $row = $st->fetch(PDO::FETCH_ASSOC);
+    $pdo = pdo_boot();
 
-    // fallback: LIKE
+    // 1️⃣ Zoek in models
+    $sql = "SELECT * FROM models
+            WHERE brand=:b AND (display_model=:m OR display_model LIKE :l)
+            LIMIT 1";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([':b'=>$brand, ':m'=>$model, ':l'=>'%'.$model.'%']);
+    $row = $stmt->fetch();
+
+    // 2️⃣ Geen match? → kijk in pcslim_models_seed (AI-wachtkamer)
     if (!$row) {
-      $st = $pdo->prepare("SELECT * FROM models WHERE active=1 AND brand=? AND display_model LIKE ? ORDER BY id DESC LIMIT 1");
-      $st->execute([$brand, "%$model%"]);
-      $row = $st->fetch(PDO::FETCH_ASSOC);
+        $seed = $pdo->prepare("SELECT * FROM pcslim_models_seed
+                               WHERE brand=:b AND (display_model=:m OR display_model LIKE :l)
+                               ORDER BY created_at DESC LIMIT 1");
+        $seed->execute([':b'=>$brand, ':m'=>$model, ':l'=>'%'.$model.'%']);
+        $seedRow = $seed->fetch();
+
+        if ($seedRow) {
+            $adv = Advice::build($seedRow);
+            json_out([
+                'found'                => true,
+                'supports_w11'         => $adv['supports_w11_value'],
+                'pcslim_label'         => $adv['pcslim_label'],
+                'requires_ram_upgrade' => (bool)$adv['requires_ram_upgrade'],
+                'advice'               => $adv['advice_text'],
+                'upgrade_hints'        => Advice::storageUpgradeTips($seedRow),
+                'specs'                => [
+                    'brand'            => $seedRow['brand'],
+                    'display_model'    => $seedRow['display_model'],
+                    'cpu_brand'        => $seedRow['cpu_brand'] ?? null,
+                    'cpu_family'       => $seedRow['cpu_family'] ?? null,
+                    'cpu_model'        => $seedRow['cpu_model'] ?? null,
+                    'cpu_gen'          => $seedRow['cpu_gen'] ?? null,
+                    'ram_installed_gb' => $seedRow['ram_installed_gb'] ?? null,
+                    'ram_max_gb'       => $seedRow['ram_max_gb'] ?? null,
+                    'ram_type'         => $seedRow['ram_type'] ?? null,
+                    'ram_slots'        => $seedRow['ram_slots'] ?? null,
+                    'storage_type'     => $seedRow['storage_type'] ?? null,
+                    'storage_interface'=> $seedRow['storage_interface'] ?? null,
+                    'storage_bays'     => $seedRow['storage_bays'] ?? null,
+                    'tpm'              => $seedRow['tpm'] ?? null,
+                    'uefi_secureboot'  => $seedRow['uefi_secureboot'] ?? null,
+                ],
+                'source'               => 'pcslim_models_seed',
+                'notice'               => 'Voorlopige AI-gegevens, nog niet gevalideerd.',
+                'cta_chat'             => [
+                    'enabled' => true,
+                    'text'    => 'Heeft u nog vragen? Ik help graag verder in de chat.',
+                ],
+            ]);
+        }
     }
-  }
-  if (!$row && $q) {
-    // losse zoekterm
-    $st = $pdo->prepare("SELECT * FROM models WHERE active=1 AND CONCAT(brand,' ',display_model) LIKE ? ORDER BY id DESC LIMIT 1");
-    $st->execute(["%$q%"]);
-    $row = $st->fetch(PDO::FETCH_ASSOC);
-  }
-  if (!$row) out(['ok'=>false,'error'=>'Model niet gevonden in database.']);
 
-  // 5) Advies bouwen
-  $advice = build_advice($row, $prices);
+    // 3️⃣ Nog steeds niks? → AI-fallback
+    if (!$row) {
+        $fallback = proxy_chat_assist($brand, $model);
 
-  // 6) Output
-  out([
-    'ok'    => true,
-    'model' => [
-      'brand'          => (string)$row['brand'],
-      'display_model'  => (string)$row['display_model'],
-      'cpu_arch'       => isset($row['cpu_arch']) ? (string)$row['cpu_arch'] : null,
-      'storage'        => isset($row['storage']) ? (string)$row['storage'] : null,
-      'max_ram_gb'     => isset($row['max_ram_gb']) ? (int)$row['max_ram_gb'] : null,
-      'supports_w11'   => isset($row['supports_w11']) ? (int)$row['supports_w11'] : null,
-    ],
-    'advice'=> $advice
-  ]);
+        // Filter NVMe uit AI-hints
+        $rawHints = (array)($fallback['upgrade_hints'] ?? []);
+        $cleanHints = array_values(array_filter($rawHints, fn($h)=>!preg_match('/\bnvme\b|m\.?2/i',(string)$h)));
+
+        $resp = [
+            'found'                => (bool)($fallback['found'] ?? true),
+            'supports_w11'         => $fallback['supports_w11'] ?? null,
+            'pcslim_label'         => $fallback['pcslim_label'] ?? null,
+            'requires_ram_upgrade' => (bool)($fallback['requires_ram_upgrade'] ?? false),
+            'advice'               => $fallback['advice'] ?? ($fallback['message'] ?? 'Voorlopig advies op basis van AI.'),
+            'specs'                => $fallback['specs'] ?? ['brand'=>$brand,'display_model'=>$model],
+            'upgrade_hints'        => $cleanHints ?: Advice::storageUpgradeTips($fallback['specs'] ?? []),
+            'source'               => 'ai-fallback',
+            'cta_chat'             => [
+                'enabled' => true,
+                'text'    => 'Heeft u nog vragen? Ik help graag verder in de chat.',
+            ],
+        ];
+
+        json_out($resp, isset($fallback['error']) ? 502 : 200);
+    }
+
+    // 4️⃣ Match in models → bouw advies en update supports_w11
+    $adv = Advice::build($row);
+
+    if ($adv['supports_w11_value'] !== null) {
+        $newVal = (int)$adv['supports_w11_value'];
+        $curVal = $row['supports_w11'];
+        if ($curVal === null || (int)$curVal !== $newVal) {
+            $upd = $pdo->prepare("UPDATE models SET supports_w11=:v, updated_at=NOW() WHERE id=:id");
+            $upd->execute([':v'=>$newVal, ':id'=>(int)$row['id']]);
+        }
+    }
+
+    $response = [
+        'found'                => true,
+        'supports_w11'         => $adv['supports_w11_value'],
+        'pcslim_label'         => $adv['pcslim_label'],
+        'requires_ram_upgrade' => (bool)$adv['requires_ram_upgrade'],
+        'advice'               => $adv['advice_text'],
+        'upgrade_hints'        => Advice::storageUpgradeTips($row),
+        'specs'                => [
+            'brand'            => $row['brand'],
+            'display_model'    => $row['display_model'],
+            'cpu_brand'        => $row['cpu_brand'] ?? null,
+            'cpu_family'       => $row['cpu_family'] ?? null,
+            'cpu_model'        => $row['cpu_model'] ?? null,
+            'cpu_gen'          => $row['cpu_gen'] ?? null,
+            'ram_installed_gb' => $row['ram_installed_gb'] ?? null,
+            'ram_max_gb'       => $row['ram_max_gb'] ?? null,
+            'ram_type'         => $row['ram_type'] ?? null,
+            'ram_slots'        => $row['ram_slots'] ?? null,
+            'storage_type'     => $row['storage_type'] ?? null,
+            'storage_interface'=> $row['storage_interface'] ?? null,
+            'storage_bays'     => $row['storage_bays'] ?? null,
+            'tpm'              => $row['tpm'] ?? null,
+            'uefi_secureboot'  => $row['uefi_secureboot'] ?? null,
+        ],
+        'source'               => 'models',
+    ];
+
+    json_out($response);
 
 } catch (Throwable $e) {
-  out(['ok'=>false,'error'=>'Fatal: '.$e->getMessage()]);
+    json_out(['found'=>false,'error'=>'Interne fout','detail'=>$e->getMessage()], 500);
 }

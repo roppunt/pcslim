@@ -753,7 +753,21 @@
 
   function buildAdviceCard(data){
     const spec = data.specs || {};
-    const hints = (data.upgrade_hints||[]).map(h=>`<li>${h}</li>`).join('');
+    // Filter NVMe/M.2 uit tips (dubbele zekerheid – backend filtert ook)
+    const tips  = (data.upgrade_hints || []).filter(h => !/(nvme|m\.?2)/i.test(String(h)));
+    const hints = tips.map(h=>`<li>${h}</li>`).join('');
+
+    // RAM-label zonder “-/–”; val terug op 'onbekend'
+    const ramInstalled = (spec.ram_installed_gb ?? spec.ram_installed ?? null);
+    const ramMax       = (spec.ram_max_gb       ?? spec.ram_max       ?? null);
+    const ramType      = spec.ram_type ? ` (${spec.ram_type})` : '';
+    const ramLabel     = (ramInstalled !== null) ? `${ramInstalled} GB${ramType}` : `onbekend${ramType}`;
+    const ramMaxLabel  = (ramMax !== null)       ? `${ramMax} GB`               : `onbekend`;
+
+    // Storage: toon interface/type in hoofdletters, zonder NVMe-promotie
+    const storageLabel = (spec.storage_interface || spec.storage_iface || spec.storage_type || 'onbekend')
+      .toString().toUpperCase();
+
     const badge = (v)=> v===1 ? '✅ Ja' : (v===0 ? '❌ Nee' : '❔ Onbekend');
     const sourceKey = data.match && data.match.source && data.match.source !== 'models'
       ? data.match.source
@@ -773,9 +787,9 @@
         </div>
 
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:10px 0;">
-          <div><small style="color:#6b778c">CPU</small><br><strong>${spec.cpu_brand||'-'} ${spec.cpu_model||''}</strong>${spec.cpu_gen?` (gen ${spec.cpu_gen})`:''}</div>
-          <div><small style="color:#6b778c">RAM</small><br><strong>${spec.ram_installed||'-'} / ${spec.ram_max||'-'} GB</strong> ${spec.ram_type?`(${spec.ram_type})`:''}</div>
-          <div><small style="color:#6b778c">Opslag</small><br><strong>${spec.storage_iface||'-'}</strong></div>
+          <div><small style="color:#6b778c">CPU</small><br><strong>${spec.cpu_brand||''} ${spec.cpu_model||''}</strong>${spec.cpu_gen?` (gen ${spec.cpu_gen})`:''}</div>
+          <div><small style="color:#6b778c">RAM</small><br><strong>${ramLabel}</strong> <span style="opacity:.7">(max ${ramMaxLabel})</span></div>
+          <div><small style="color:#6b778c">Opslag</small><br><strong>${storageLabel}</strong></div>
         </div>
 
         <div style="margin-top:8px">
